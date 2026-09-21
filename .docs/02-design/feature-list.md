@@ -28,7 +28,7 @@ Technical terminology should stay inside the system rather than being shown unne
 | ID | Technical Domain | UI Label | Primary Inputs | Typical Recovery Timescale |
 |---|---|---|---|---|
 | D1 | Brain & Impact Load | **Brain** | sparring rounds, contact intensity, reported post-impact symptoms, recent sparring exposure | days–weeks |
-| D2 | Energy / Nutrition / Weight | **Fuel & Weight** | morning weight trend, urine colour, post-training meal, protein intake, carbohydrate band | hours–days |
+| D2 | Energy / Nutrition / Weight | **Fuel & Weight** | morning weight trend, post-training meal, protein intake, carbohydrate band | hours–days |
 | D3 | Autonomic / Sleep Recovery | **Sleep & Heart** | HRV, resting HR, sleep duration, available sleep metrics | hours–days |
 | D4 | Neuromuscular Power | **Power & Speed** | punch freshness test, punch count, punch speed/output where available | 24–72 h |
 | D5 | Physical / Structural | **Body** | soreness map, pain location, severity, recent training load | days |
