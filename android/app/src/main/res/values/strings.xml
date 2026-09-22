@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Recovery for Boxers</string>
+    <string name="title_activity_main">Recovery for Boxers</string>
+    <string name="package_name">com.boxerrecovery.app</string>
+    <string name="custom_url_scheme">com.boxerrecovery.app</string>
+</resources>

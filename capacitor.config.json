@@ -1,0 +1,6 @@
+{
+  "appId": "com.boxerrecovery.app",
+  "appName": "Recovery for Boxers",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" }
+}

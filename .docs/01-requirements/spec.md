@@ -281,9 +281,8 @@ Manual information may include:
 
 Possible sources include:
 
-- manual punch freshness test;
-- FightCamp;
-- future supported boxing sensors.
+- FightCamp through an officially supported integration;
+- synthetic FightCamp sessions in the prototype.
 
 Possible metrics:
 
@@ -500,33 +499,13 @@ The system SHALL NOT require detailed macro tracking.
 
 ---
 
-# 15. Punch Freshness Test
+# 15. FightCamp Performance Data
 
-The athlete SHOULD perform a short punch freshness test approximately 3–4 times per week.
+Power & Speed SHALL use punch and session data from FightCamp where an official integration is available. The athlete is not asked to perform or enter a separate Punch Test.
 
-Suggested test duration:
+Until official access is confirmed, the prototype SHALL use a clearly labelled mock FightCamp connector and synthetic sessions. The normalized session model supports punch count and optional speed, output, rounds, and session ID.
 
-```text
-10 seconds
-```
-
-Minimum manual metric:
-
-- punch count.
-
-Where supported, additional metrics may include:
-
-- average punch speed;
-- peak punch speed;
-- punch output.
-
-Results SHOULD be compared against the athlete's own personal baseline.
-
-The test contributes primarily to:
-
-```text
-Power & Speed
-```
+Punch count SHOULD be compared with a personal baseline from at least four distinct session days from the same source. Missing metrics remain unavailable. FightCamp data contributes primarily to Power & Speed.
 
 ---
 
@@ -680,7 +659,7 @@ The Recovery Engine SHALL receive normalized data from:
 - morning check-in;
 - training history;
 - nutrition check;
-- punch freshness data;
+- FightCamp punch and session data;
 - pain/soreness data;
 - fight-camp context.
 
@@ -1076,9 +1055,9 @@ The athlete SHALL be able to record pain or soreness using a body-based interfac
 
 ---
 
-## FR-10 — Punch Freshness
+## FR-10 — FightCamp Punch Performance
 
-The application SHALL support a short punch freshness test.
+The application SHALL support FightCamp punch performance through an authorized integration when available, and a labelled mock connector in the prototype. It SHALL NOT require a separate manual Punch Test.
 
 **Backlog:** US-20, US-21
 
@@ -1259,7 +1238,7 @@ The prototype SHALL demonstrate the complete core recovery flow.
 - Four training-load categories
 - Pain body map
 - Nutrition check
-- Punch freshness test
+- FightCamp punch and session data view
 - Six recovery domains
 - Game-inspired body condition view
 - Safety Gate

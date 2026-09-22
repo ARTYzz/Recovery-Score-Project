@@ -1,5 +1,22 @@
 # Recovery Score Project
 
+## Mobile MVP prototype
+
+The app has a Capacitor Android project in `android/`. Install dependencies with `pnpm install`, then run `pnpm dev` to preview the 390 × 844 interface or `pnpm android:sync` to rebuild Android assets. Building an APK requires Android Studio and an Android SDK.
+
+The code is organized by responsibility:
+
+- `src/core.js`: personal baselines, fight camp clock, safety gate, six-domain assessment, training guidance, mock connector, and action feedback.
+- `src/vault.js`: passphrase-based AES-GCM encryption for local athlete data.
+- `src/app.js`: mobile screens, navigation, and interactions.
+- `src/style.css`: PDF-derived visual styles.
+
+The core loop works with local data. The first run offers profile setup and affirmative prototype consent, or synthetic demo data. Apple Health, Health Connect, and FightCamp connections are **mock adapters**, not platform permissions or official integrations. There is no backend account or cloud sync. The prototype must not be used as a medical decision tool.
+
+Power & Speed reads normalized FightCamp session records. The prototype loads clearly labelled synthetic FightCamp history; there is no manual Punch Test or undocumented FightCamp API call. Older manual punch records may remain in a local vault but are not used in the assessment.
+
+Onboarding has three steps: athlete profile and Privacy Notice; optional prototype health-data source or Skip for now (with local health-data consent); then the fight countdown and 7-day baseline introduction. The official weigh-in weight is optional. Skipping a source leaves wearable metrics `Unavailable`. "Try synthetic demo" creates a predefined athlete with camp, wearable, and training history and opens Today directly.
+
 ## 1. Project Overview
 
 This project proposes a **boxing recovery tracking application for professional boxers**. The application is designed for athletes to use independently during a fight camp to understand their daily recovery condition and make safer training decisions.
@@ -14,12 +31,12 @@ The application combines automatically collected wearable data with short manual
 
 The system evaluates recovery across six domains:
 
-* Brain and Impact
-* Energy, Nutrition, and Weight
-* Nervous System and Sleep
-* Power and Speed
-* Physical Condition
-* Mental Condition
+- Brain and Impact
+- Energy, Nutrition, and Weight
+- Nervous System and Sleep
+- Power and Speed
+- Physical Condition
+- Mental Condition
 
 The recovery result is also interpreted in the context of the athlete's current **fight camp phase**, because the same physiological condition may require different training decisions depending on how close the athlete is to competition.
 
@@ -39,14 +56,14 @@ Professional boxers also use different wearable devices and training systems. Im
 
 The proposed application addresses these problems by:
 
-* combining wearable and self-reported recovery data;
-* separating training load into boxing-specific categories;
-* evaluating six recovery domains independently;
-* considering the athlete's current fight camp phase;
-* identifying the primary recovery limiter for the day;
-* recommending which training types are appropriate or should be avoided;
-* providing one simple recovery action for the athlete to complete;
-* tracking whether previous recovery actions were followed by measurable improvements.
+- combining wearable and self-reported recovery data;
+- separating training load into boxing-specific categories;
+- evaluating six recovery domains independently;
+- considering the athlete's current fight camp phase;
+- identifying the primary recovery limiter for the day;
+- recommending which training types are appropriate or should be avoided;
+- providing one simple recovery action for the athlete to complete;
+- tracking whether previous recovery actions were followed by measurable improvements.
 
 The application is intended to support training decisions rather than replace medical professionals, diagnose neurological injuries, or provide aggressive weight-cutting guidance.
 
@@ -62,22 +79,22 @@ The application is designed primarily for individual athlete use rather than for
 
 Typical characteristics of the target user include:
 
-* trains multiple times per week or multiple times per day;
-* performs a combination of sparring, technical boxing, conditioning, and strength training;
-* follows a structured fight camp leading toward a scheduled competition;
-* uses a smartwatch or wearable device;
-* may use boxing-specific tracking equipment such as FightCamp;
-* wants quick and actionable recovery information without manually recording large amounts of data;
-* needs training guidance rather than another dashboard containing only health metrics.
+- trains multiple times per week or multiple times per day;
+- performs a combination of sparring, technical boxing, conditioning, and strength training;
+- follows a structured fight camp leading toward a scheduled competition;
+- uses a smartwatch or wearable device;
+- may use boxing-specific tracking equipment such as FightCamp;
+- wants quick and actionable recovery information without manually recording large amounts of data;
+- needs training guidance rather than another dashboard containing only health metrics.
 
 ### Available Equipment
 
 The system assumes the athlete can reasonably access:
 
-* a smartphone;
-* a smartwatch or wearable device;
-* a body-weight scale;
-* optional boxing tracking equipment such as FightCamp.
+- a smartphone;
+- a smartwatch or wearable device;
+- a body-weight scale;
+- optional boxing tracking equipment such as FightCamp.
 
 The system does not depend on laboratory equipment, blood testing, EEG measurements, or other specialist sports-science equipment.
 
@@ -87,15 +104,15 @@ The system does not depend on laboratory equipment, blood testing, EEG measureme
 
 The target user needs the application to:
 
-* automatically import available sleep, heart-rate, HRV, and workout information from supported wearable ecosystems;
-* minimize manual data entry;
-* understand recovery in a boxing-specific context;
-* distinguish between different training loads;
-* identify the most important recovery limitation each day;
-* provide clear allowed and restricted training recommendations;
-* provide simple and achievable recovery actions;
-* adapt recommendations according to the current fight camp phase;
-* learn which recovery strategies appear to work for the individual athlete over time.
+- automatically import available sleep, heart-rate, HRV, and workout information from supported wearable ecosystems;
+- minimize manual data entry;
+- understand recovery in a boxing-specific context;
+- distinguish between different training loads;
+- identify the most important recovery limitation each day;
+- provide clear allowed and restricted training recommendations;
+- provide simple and achievable recovery actions;
+- adapt recommendations according to the current fight camp phase;
+- learn which recovery strategies appear to work for the individual athlete over time.
 
 The application should remain fast enough for daily use, with manual interaction targeted at approximately **90 seconds or less per day** under normal conditions.
 
@@ -109,34 +126,34 @@ The proposed application will combine data from multiple sources.
 
 Where supported, the application may import:
 
-* sleep duration and sleep-related metrics;
-* heart rate;
-* resting heart rate;
-* HRV;
-* workout duration;
-* exercise sessions;
-* activity-related metrics.
+- sleep duration and sleep-related metrics;
+- heart rate;
+- resting heart rate;
+- HRV;
+- workout duration;
+- exercise sessions;
+- activity-related metrics.
 
 Potential integration sources include:
 
-* Apple Health / Apple Watch;
-* Android Health Connect and compatible wearable ecosystems;
-* future supported wearable platforms;
-* FightCamp or other boxing-specific systems where appropriate integration access is available.
+- Apple Health / Apple Watch;
+- Android Health Connect and compatible wearable ecosystems;
+- future supported wearable platforms;
+- FightCamp or other boxing-specific systems where appropriate integration access is available.
 
 ### Athlete-Reported Data
 
 The athlete will manually provide information that wearable devices cannot reliably determine, such as:
 
-* morning body weight;
-* urine color;
-* mood;
-* sparring rounds;
-* boxing training type;
-* perceived training intensity;
-* pain or soreness location;
-* basic nutrition completion;
-* symptoms requiring safety attention.
+- morning body weight;
+- urine color;
+- mood;
+- sparring rounds;
+- boxing training type;
+- perceived training intensity;
+- pain or soreness location;
+- basic nutrition completion;
+- symptoms requiring safety attention.
 
 The interface should prioritize taps, selectors, and simple controls instead of text entry.
 
@@ -165,10 +182,10 @@ This allows the application to recognize situations where one type of training s
 
 Instead of only displaying a readiness score, the application provides actionable outputs such as:
 
-* today's main recovery limiter;
-* training that can be performed;
-* training that should be avoided;
-* one prioritized recovery action for the evening.
+- today's main recovery limiter;
+- training that can be performed;
+- training that should be avoided;
+- one prioritized recovery action for the evening.
 
 ### Personal Recovery Feedback
 
@@ -184,9 +201,9 @@ The application is intended as a training and recovery support tool.
 
 It must not:
 
-* diagnose concussion or other neurological conditions;
-* replace medical assessment;
-* encourage dangerous dehydration;
-* provide instructions for aggressive weight cutting.
+- diagnose concussion or other neurological conditions;
+- replace medical assessment;
+- encourage dangerous dehydration;
+- provide instructions for aggressive weight cutting.
 
 Where potentially concerning neurological or physical symptoms are reported, safety rules should override normal readiness recommendations and advise the athlete to avoid relevant training exposure and seek appropriate professional evaluation when necessary.
