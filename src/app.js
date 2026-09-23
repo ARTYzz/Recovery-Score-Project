@@ -4,6 +4,7 @@ import {
   CampClock,
   MockHealthConnector,
   MockFightCampConnector,
+  MorningCheckInSchedule,
   demoData,
   emptyData,
   LABELS,
@@ -129,6 +130,9 @@ class BoxerApp {
       this.route = location.hash.slice(1) || "today";
       this.render();
     });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && this.data) this.render();
+    });
     setInterval(() => this.tick(), 1000);
     this.render();
   }
@@ -178,7 +182,10 @@ class BoxerApp {
       }
       if (f.id === "unlock") {
         this.data = await this.vault.unlock(fd.get("passphrase"));
-        this.render();
+        if ((this.data.consent?.healthAcceptedAt || this.data.consent?.mockOnly) &&
+            new MockFightCampConnector().ensureDemoData(this.data))
+          await this.vault.save();
+        this.go(MorningCheckInSchedule.isDue(this.data, date()) ? "morning" : "today");
       }
       if (f.id === "profile") {
         if (!CampClock.isFutureDate(fd.get("fightDate")))
@@ -283,9 +290,9 @@ class BoxerApp {
         this.go("today");
         break;
       case "onboarding-demo-source": {
+        if (!["apple", "android"].includes(value)) throw Error("Choose a supported health demo source.");
         this.acceptHealthConsent();
-        const source = value === "fightcamp" ? "demo-health" : value;
-        const health = new MockHealthConnector(source);
+        const health = new MockHealthConnector(value);
         health.connect(d);
         health.sync(d, {
           sleepMinutes: 437,
@@ -294,11 +301,6 @@ class BoxerApp {
           heartRate: 74,
           workoutMinutes: 52,
         });
-        if (value === "fightcamp") {
-          const fightcamp = new MockFightCampConnector();
-          fightcamp.connect(d);
-          fightcamp.seedHistory(d);
-        }
         d.onboarding = { stage: "ready", selectedSource: value, demo: true };
         await this.vault.save();
         this.go("baseline-intro");
@@ -312,8 +314,9 @@ class BoxerApp {
         break;
       case "onboarding-start":
         d.onboarding = { ...d.onboarding, stage: "complete" };
+        new MockFightCampConnector().ensureDemoData(d);
         await this.vault.save();
-        this.go("today");
+        this.go("morning");
         break;
       case "lock":
         this.vault.lock();
@@ -366,7 +369,7 @@ class BoxerApp {
           soreness: x.soreness || [],
           painSeverity: x.painSeverity || "None",
         };
-        d.checkins.push(check);
+        MorningCheckInSchedule.save(d, check);
         const w = d.wearables.at(-1),
           prior = d.wearables.at(-2);
         for (const a of d.actions.filter(
@@ -461,19 +464,18 @@ class BoxerApp {
         this.go("today");
         break;
       case "connect":
-        if (value === "fightcamp") new MockFightCampConnector().connect(d);
-        else new MockHealthConnector(value).connect(d);
+        if (!["apple", "android"].includes(value)) throw Error("Choose a supported health demo source.");
+        new MockHealthConnector(value).connect(d);
         await this.persist();
         break;
       case "disconnect":
-        if (value === "fightcamp") new MockFightCampConnector().disconnect(d);
-        else new MockHealthConnector(value).disconnect(d);
+        if (!["apple", "android"].includes(value)) throw Error("Choose a supported health demo source.");
+        new MockHealthConnector(value).disconnect(d);
         await this.persist();
         break;
       case "sync":
-        if (value === "fightcamp") new MockFightCampConnector().sync(d);
-        else
-          new MockHealthConnector(value).sync(d, {
+        if (!["apple", "android"].includes(value)) throw Error("Choose a supported health demo source.");
+        new MockHealthConnector(value).sync(d, {
             hrv: 58,
             restingHr: 47,
             sleepMinutes: 342,
@@ -482,13 +484,6 @@ class BoxerApp {
           });
         await this.persist();
         break;
-      case "fightcamp-demo": {
-        const connector = new MockFightCampConnector();
-        connector.connect(d);
-        connector.seedHistory(d);
-        await this.persist();
-        break;
-      }
       case "demo-history": {
         if (value !== "apple" && value !== "android")
           throw Error("Choose Apple Health or Health Connect demo data.");
@@ -540,6 +535,7 @@ class BoxerApp {
     if (this.data?.onboarding?.stage === "connect")
       this.route = "connect-health";
     if (this.data?.onboarding?.stage === "ready") this.route = "baseline-intro";
+    if (MorningCheckInSchedule.isDue(this.data, date())) this.route = "morning";
     root.innerHTML = !this.data
       ? this.vault.exists()
         ? this.unlock()
@@ -559,13 +555,8 @@ class BoxerApp {
     const sources = [
       ["apple", "Apple Health", "Sleep, HRV, Resting HR, Workout"],
       ["android", "Health Connect", "Sleep, HRV, Resting HR, Workout"],
-      [
-        "fightcamp",
-        "FightCamp",
-        "Punch and session data; health metrics are separate synthetic demo data",
-      ],
     ];
-    return `<div class="screen setup-screen connect-health-screen"><div class="onboarding-step">STEP 2 OF 3 · HEALTH DATA</div><h1>Connect Health Data</h1><p>These are prototype sources. No real device or account connection is made.</p>${this.error ? `<p class="error">${safe(this.error)}</p>` : ""}${sources.map(([key, title, detail]) => card(`<div class="source-title"><strong>${title}</strong><span>Prototype / Demo</span></div><p>${detail}</p><button class="source-demo" data-action="onboarding-demo-source" data-value="${key}">Use demo data</button>`, "onboarding-source")).join("")}${card(`<button class="health-consent ${this.draft.healthConsent === "yes" ? "selected" : ""}" data-field="healthConsent" data-value="${this.draft.healthConsent === "yes" ? "no" : "yes"}">${icon(this.draft.healthConsent === "yes" ? "check-square" : "square", 18)} I consent to local processing of health, training, and recovery inputs for personal guidance.</button><p class="helper">Required even if you skip a wearable, because manual check-ins contain health-related data.</p>`, "health-consent-card")}<button class="secondary-wide" data-action="onboarding-skip">Skip for now</button><p class="field-help center-note">Skipped metrics will show Unavailable, never 0.</p></div>`;
+    return `<div class="screen setup-screen connect-health-screen"><div class="onboarding-step">STEP 2 OF 3 · HEALTH DATA</div><h1>Connect Health Data</h1><p>These are prototype sources. No real device or account connection is made.</p>${this.error ? `<p class="error">${safe(this.error)}</p>` : ""}${sources.map(([key, title, detail]) => card(`<div class="source-title"><strong>${title}</strong><span>Prototype / Demo</span></div><p>${detail}</p><button class="source-demo" data-action="onboarding-demo-source" data-value="${key}">Use demo data</button>`, "onboarding-source")).join("")}${card(`<div class="source-title"><strong>FightCamp</strong><span>Prototype / Demo</span></div><p>Synthetic punch and session data will load automatically after Start. No real FightCamp connection.</p>`, "onboarding-source")}${card(`<button class="health-consent ${this.draft.healthConsent === "yes" ? "selected" : ""}" data-field="healthConsent" data-value="${this.draft.healthConsent === "yes" ? "no" : "yes"}">${icon(this.draft.healthConsent === "yes" ? "check-square" : "square", 18)} I consent to local processing of health, training, and recovery inputs for personal guidance.</button><p class="helper">Required even if you skip a wearable, because manual check-ins contain health-related data.</p>`, "health-consent-card")}<button class="secondary-wide" data-action="onboarding-skip">Skip for now</button><p class="field-help center-note">Skipped wearable metrics show Unavailable. FightCamp demo loads automatically after Start.</p></div>`;
   }
   baselineIntro() {
     const camp = CampClock.get(this.data.profile);
@@ -596,9 +587,8 @@ class BoxerApp {
     return (pages[this.route] || pages.today)();
   }
   todayDataSources(assessment) {
-    const moodLogged = this.data.checkins.some((check) => check.date === date() && check.mood);
     const fightCampDays = assessment.baseline.punch.count;
-    return `<div class="today-input-links"><button data-route="morning">${icon("sun", 16)}<span><b>Morning check-in</b><small>${moodLogged ? "Mood logged today" : "Add mood and safety answers"}</small></span>${icon("chevron-right", 15)}</button><button data-route="fightcamp">${icon("target", 16)}<span><b>FightCamp data</b><small>${fightCampDays} of 4 session days · Demo</small></span>${icon("chevron-right", 15)}</button></div>${assessment.domains.sleep.status === "INSUFFICIENT_DATA" ? `<button class="card strip link-card wearable-help" data-route="connections"><b>${icon("watch", 16)} Sleep & Heart: ${Math.max(assessment.baseline.hrv.count, assessment.baseline.sleep.count)} of 7 baseline days</b><span>Demo data ${icon("chevron-right", 15)}</span></button>` : ""}`;
+    return `<div class="today-input-links"><button data-route="fightcamp">${icon("target", 16)}<span><b>FightCamp data</b><small>${fightCampDays} of 4 session days · Demo</small></span>${icon("chevron-right", 15)}</button></div>${assessment.domains.sleep.status === "INSUFFICIENT_DATA" ? `<button class="card strip link-card wearable-help" data-route="connections"><b>${icon("watch", 16)} Sleep & Heart: ${Math.max(assessment.baseline.hrv.count, assessment.baseline.sleep.count)} of 7 baseline days</b><span>Demo data ${icon("chevron-right", 15)}</span></button>` : ""}`;
   }
   today() {
     const a = this.result,
@@ -608,8 +598,8 @@ class BoxerApp {
   }
   morning() {
     const x = this.draft,
-      w = this.data.wearables.at(-1) || {};
-    return `<div class="screen form-screen">${header("Morning check-in", "~30 s")}<div class="step-progress"><i></i><i></i><i></i></div>${card(`<div class="eyebrow">${icon("watch", 14)} ${safe(w.source || "WEARABLE UNAVAILABLE")}</div><div class="watch-stats"><div>${metricStrong(w.hrv)}<span>HRV</span></div><div>${metricStrong(w.restingHr)}<span>Resting HR</span></div><div>${metricStrong(w.sleepMinutes, (minutes) => `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`)}<span>Sleep</span></div></div>`, "watch-card")}${card(`<div class="section-head"><b>1 · WEIGH IN</b><span>First thing, nothing on</span></div><div class="weight-step"><button data-action="weight-down">${icon("minus")}</button><strong>${x.weight !== undefined || this.data.checkins.at(-1)?.weight != null ? Number(x.weight ?? this.data.checkins.at(-1).weight).toFixed(1) : "--.-"}<small> kg</small></strong><button data-action="weight-up">${icon("plus")}</button></div>`)}${card(`<div class="section-head"><b>2 · URINE COLOUR</b></div><div class="urine-swatches">${["#ffffe6", "#fbfbd1", "#faecac", "#efd97b", "#d6be4e", "#af8d2f"].map((c, i) => `<button data-field="urine" data-value="${i}" class="${String(x.urine ?? 2) === String(i) ? "selected" : ""}" style="background:${c}"></button>`).join("")}</div><div class="scale-label"><span>Clear</span><b>${Number(x.urine ?? 2) + 1} selected</b><span>Dark</span></div>`)}${card(`<div class="section-head muted"><b>3 · HOW DO YOU FEEL</b><span>One tap</span></div><div class="moods">${["Flat", "Low", "OK", "Good", "Sharp"].map((m, i) => `<button data-field="mood" data-value="${m}" class="${x.mood === m ? "selected" : ""}"><span style="opacity:${0.35 + i * 0.13}"></span>${m}</button>`).join("")}</div>`)}${card(`<div class="section-head muted"><b>SAFETY CHECK</b></div><p class="helper">New symptoms after head contact?</p>${choice("symptom", ["No", "Yes"], x.symptom)}<p class="helper">Pain severity</p>${choice("painSeverity", ["None", "Mild", "Severe"], x.painSeverity)}`)}${fixed("Save check-in", "save-morning")}</div>`;
+      w = this.data.wearables.findLast((sample) => sample.date === date()) || {};
+    return `<div class="screen form-screen"><header class="page-head"><h1 class="head-title">Morning check-in</h1><span class="pill">~30 s</span></header><div class="step-progress"><i></i><i></i><i></i></div>${card(`<div class="eyebrow">${icon("watch", 14)} ${safe(w.source || "WEARABLE UNAVAILABLE")}</div><div class="watch-stats"><div>${metricStrong(w.hrv)}<span>HRV</span></div><div>${metricStrong(w.restingHr)}<span>Resting HR</span></div><div>${metricStrong(w.sleepMinutes, (minutes) => `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`)}<span>Sleep</span></div></div>`, "watch-card")}${card(`<div class="section-head"><b>1 · WEIGH IN</b><span>First thing, nothing on</span></div><div class="weight-step"><button data-action="weight-down">${icon("minus")}</button><strong>${x.weight !== undefined || this.data.checkins.at(-1)?.weight != null ? Number(x.weight ?? this.data.checkins.at(-1).weight).toFixed(1) : "--.-"}<small> kg</small></strong><button data-action="weight-up">${icon("plus")}</button></div>`)}${card(`<div class="section-head"><b>2 · URINE COLOUR</b></div><div class="urine-swatches">${["#ffffe6", "#fbfbd1", "#faecac", "#efd97b", "#d6be4e", "#af8d2f"].map((c, i) => `<button data-field="urine" data-value="${i}" class="${String(x.urine ?? 2) === String(i) ? "selected" : ""}" style="background:${c}"></button>`).join("")}</div><div class="scale-label"><span>Clear</span><b>${Number(x.urine ?? 2) + 1} selected</b><span>Dark</span></div>`)}${card(`<div class="section-head muted"><b>3 · HOW DO YOU FEEL</b><span>One tap</span></div><div class="moods">${["Flat", "Low", "OK", "Good", "Sharp"].map((m, i) => `<button data-field="mood" data-value="${m}" class="${x.mood === m ? "selected" : ""}"><span style="opacity:${0.35 + i * 0.13}"></span>${m}</button>`).join("")}</div>`)}${card(`<div class="section-head muted"><b>SAFETY CHECK</b></div><p class="helper">New symptoms after head contact?</p>${choice("symptom", ["No", "Yes"], x.symptom)}<p class="helper">Pain severity</p>${choice("painSeverity", ["None", "Mild", "Severe"], x.painSeverity)}`)}${fixed("Save check-in", "save-morning")}</div>`;
   }
   training() {
     const x = this.draft,
@@ -680,7 +670,7 @@ class BoxerApp {
       baseline = this.result.baseline.punch,
       power = this.result.domains.power;
     const value = (metric) => Number.isFinite(metric) ? metric : "Unavailable";
-    return `<div class="screen form-screen fightcamp-screen">${header("FightCamp", "Prototype / Demo")}${card(`<div class="eyebrow">BOXING PERFORMANCE SOURCE</div><h2>${connected ? "Mock connected" : "Unavailable"}</h2><p>${connected ? "Synthetic FightCamp sessions stored locally. No real account or API connection." : "Connect the mock source to preview punch and session data."}</p>`, "fightcamp-source")}${card(`<div class="section-head"><b>LATEST SESSION</b><span>${safe(latest?.date || "No data")}</span></div><div class="fightcamp-metrics">${[["Punch count", value(latest?.count)], ["Speed · demo", value(latest?.speed)], ["Output · demo", value(latest?.output)], ["Rounds", value(latest?.rounds)]].map(([label, metric]) => `<div><span>${label}</span><strong>${metric}</strong></div>`).join("")}</div><p class="helper">${safe(latest?.source || "FightCamp source unavailable")}</p>`, "fightcamp-latest")}${card(`<div class="eyebrow">POWER & SPEED</div><h2>${power.status.replace("_", " ")}</h2><p>${safe(power.reasons.join(" · ") || "No FightCamp session data yet.")}</p><p class="helper">${baseline.count} of 4 session days for a personal punch-count baseline.</p>`, "lime-card")}${card(`<div class="eyebrow">RECENT FIGHTCAMP SESSIONS</div>${sessions.length ? sessions.slice(-4).reverse().map((session) => `<div class="history-row"><span>${safe(session.date)} · ${safe(session.source)}</span><b>${value(session.count)} punches · ${value(session.rounds)} rounds</b></div>`).join("") : "<p>No FightCamp sessions yet.</p>"}`)}<button class="primary fightcamp-demo-button" data-action="fightcamp-demo">Load mock FightCamp history</button>${connected ? `<button class="secondary-wide" data-action="sync" data-value="fightcamp">Sync mock session</button>` : ""}<button class="secondary-wide" data-route="connections">Connected sources</button></div>`;
+    return `<div class="screen form-screen fightcamp-screen">${header("FightCamp", "Prototype / Demo")}${card(`<div class="eyebrow">BOXING PERFORMANCE SOURCE</div><h2>${connected ? "Demo data active" : "Unavailable"}</h2><p>${connected ? "Synthetic FightCamp sessions stored locally. No real account or API connection." : "Synthetic FightCamp data is prepared automatically after onboarding. No real account or API connection."}</p>`, "fightcamp-source")}${card(`<div class="section-head"><b>LATEST SESSION</b><span>${safe(latest?.date || "No data")}</span></div><div class="fightcamp-metrics">${[["Punch count", value(latest?.count)], ["Speed · demo", value(latest?.speed)], ["Output · demo", value(latest?.output)], ["Rounds", value(latest?.rounds)]].map(([label, metric]) => `<div><span>${label}</span><strong>${metric}</strong></div>`).join("")}</div><p class="helper">${safe(latest?.source || "FightCamp source unavailable")}</p>`, "fightcamp-latest")}${card(`<div class="eyebrow">POWER & SPEED</div><h2>${power.status.replace("_", " ")}</h2><p>${safe(power.reasons.join(" · ") || "No FightCamp session data yet.")}</p><p class="helper">${baseline.count} of 4 session days for a personal punch-count baseline.</p>`, "lime-card")}${card(`<div class="eyebrow">RECENT FIGHTCAMP SESSIONS</div>${sessions.length ? sessions.slice(-4).reverse().map((session) => `<div class="history-row"><span>${safe(session.date)} · ${safe(session.source)}</span><b>${value(session.count)} punches · ${value(session.rounds)} rounds</b></div>`).join("") : "<p>No FightCamp sessions yet.</p>"}`)}</div>`;
   }
   brain() {
     const a = this.result,
@@ -777,18 +767,17 @@ class BoxerApp {
     return `<div class="screen form-screen">${header("Connected sources")}<p class="camp-summary">Mock adapters only. Native device permissions and official FightCamp access are not connected.</p>${[
       ["apple", "Apple Health"],
       ["android", "Health Connect"],
-      ["fightcamp", "FightCamp (mock)"],
     ]
       .map(([key, label]) => {
         const c = this.data.connections[key],
           ok = c?.status === "MOCK_CONNECTED";
         return card(
-          `<div class="section-head"><strong>${label}</strong><span>${ok ? "Mock connected" : "Unavailable"}</span></div><p class="helper">Source: ${safe(c?.source || "None")}</p><div class="source-actions"><button data-action="${ok ? "disconnect" : "connect"}" data-value="${key}">${ok ? "Disconnect mock" : "Connect mock"}</button>${ok ? `<button data-action="sync" data-value="${key}">Sync sample</button>` : ""}${key === "fightcamp" ? `<button data-action="fightcamp-demo">Load mock FightCamp history</button>` : `<button data-action="demo-history" data-value="${key}">Load 7-day synthetic history</button>`}</div>`,
+          `<div class="section-head"><strong>${label}</strong><span>${ok ? "Mock connected" : "Unavailable"}</span></div><p class="helper">Source: ${safe(c?.source || "None")}</p><div class="source-actions"><button data-action="${ok ? "disconnect" : "connect"}" data-value="${key}">${ok ? "Disconnect mock" : "Connect mock"}</button>${ok ? `<button data-action="sync" data-value="${key}">Sync sample</button>` : ""}<button data-action="demo-history" data-value="${key}">Load 7-day synthetic history</button></div>`,
         );
       })
       .join(
         "",
-      )}<button class="secondary-wide" data-route="settings">Back to settings</button></div>`;
+      )}${card(`<div class="section-head"><strong>FightCamp</strong><span>Prototype / Demo</span></div><p class="helper">Synthetic punch and session data loads automatically. No real FightCamp account or API is connected.</p>`)}<button class="secondary-wide" data-route="settings">Back to settings</button></div>`;
   }
   settings() {
     const p = this.data.profile;

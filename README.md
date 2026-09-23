@@ -13,9 +13,9 @@ The code is organized by responsibility:
 
 The core loop works with local data. The first run offers profile setup and affirmative prototype consent, or synthetic demo data. Apple Health, Health Connect, and FightCamp connections are **mock adapters**, not platform permissions or official integrations. There is no backend account or cloud sync. The prototype must not be used as a medical decision tool.
 
-Power & Speed reads normalized FightCamp session records. The prototype loads clearly labelled synthetic FightCamp history; there is no manual Punch Test or undocumented FightCamp API call. Older manual punch records may remain in a local vault but are not used in the assessment.
+Power & Speed reads normalized FightCamp session records. After onboarding Start, the prototype automatically loads clearly labelled synthetic FightCamp history; consented existing profiles receive it on unlock. No FightCamp Connect, Sync, or Load button is needed, and no real FightCamp account or API is connected. There is no manual Punch Test or undocumented FightCamp API call. Older manual punch records may remain in a local vault but are not used in the assessment.
 
-Onboarding has three steps: athlete profile and Privacy Notice; optional prototype health-data source or Skip for now (with local health-data consent); then the fight countdown and 7-day baseline introduction. The official weigh-in weight is optional. Skipping a source leaves wearable metrics `Unavailable`. "Try synthetic demo" creates a predefined athlete with camp, wearable, and training history and opens Today directly.
+Onboarding has three steps: athlete profile and Privacy Notice; optional prototype health-data source or Skip for now (with local health-data consent); then the fight countdown and 7-day baseline introduction. The official weigh-in weight is optional. Skipping a source leaves wearable metrics `Unavailable`. Start opens Morning Check-In automatically. Unlocking on a new local day also opens it; after saving, the athlete goes to Today and is not prompted again that day. "Try synthetic demo" creates a predefined athlete with camp, wearable, training, and today's check-in history and opens Today directly.
 
 ## 1. Project Overview
 

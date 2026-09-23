@@ -9,11 +9,29 @@ import {
   FeedbackService,
   MockFightCampConnector,
   MockHealthConnector,
+  MorningCheckInSchedule,
   PersonalBaseline,
   normalizeWearableSample,
   normalizeFightCampSession,
 } from "../src/core.js";
 import { AthleteVault } from "../src/vault.js";
+test("morning check-in is due once per local day after onboarding", () => {
+  const data = emptyData();
+  data.profile = { name: "Athlete" };
+  data.onboarding = { stage: "ready" };
+  assert.equal(MorningCheckInSchedule.isDue(data, "2026-09-23"), false);
+  data.onboarding.stage = "complete";
+  assert.equal(MorningCheckInSchedule.isDue(data, "2026-09-23"), true);
+  MorningCheckInSchedule.save(data, { date: "2026-09-23", mood: "OK" });
+  assert.equal(MorningCheckInSchedule.isDue(data, "2026-09-23"), false);
+  assert.equal(MorningCheckInSchedule.isDue(data, "2026-09-24"), true);
+  MorningCheckInSchedule.save(data, { date: "2026-09-23", mood: "Good" });
+  assert.equal(data.checkins.length, 1);
+  assert.equal(data.checkins[0].mood, "Good");
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  assert.equal(MorningCheckInSchedule.isDue(demoData(), localToday), false);
+});
 test("missing wearable data stays insufficient, never zero", () => {
   const result = new RecoveryEngine().assess(emptyData());
   assert.equal(result.domains.sleep.status, "INSUFFICIENT_DATA");
@@ -153,6 +171,16 @@ test("FightCamp demo history is distinct, idempotent, and feeds Power & Speed", 
   assert.equal(d.fightCampSessions.length, 4);
   assert.equal(new PersonalBaseline(d).punch().count, 4);
   assert.equal(new RecoveryEngine().assess(d).domains.power.status, "READY");
+});
+test("FightCamp mock initializes automatically without duplicating sessions", () => {
+  const data = emptyData();
+  const connector = new MockFightCampConnector();
+  assert.equal(connector.ensureDemoData(data), true);
+  assert.equal(data.connections.fightcamp.status, "MOCK_CONNECTED");
+  assert.equal(data.fightCampSessions.length, 4);
+  assert.equal(connector.ensureDemoData(data), false);
+  assert.equal(data.fightCampSessions.length, 4);
+  assert.equal(new RecoveryEngine().assess(data).domains.power.status, "READY");
 });
 test("fight date must be strictly in the future and formats clearly", () => {
   const now = new Date("2026-07-19T10:00:00");

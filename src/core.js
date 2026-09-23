@@ -7,6 +7,19 @@ export const LABELS = {
   body: "Body",
   mind: "Mind",
 };
+export class MorningCheckInSchedule {
+  static isDue(data, localDate) {
+    if (!data?.profile || ["connect", "ready"].includes(data.onboarding?.stage)) return false;
+    return !(data.checkins || []).some((checkin) => checkin.date === localDate);
+  }
+
+  static save(data, checkin) {
+    data.checkins ??= [];
+    const index = data.checkins.findIndex((entry) => entry.date === checkin.date);
+    if (index >= 0) data.checkins[index] = checkin;
+    else data.checkins.push(checkin);
+  }
+}
 // Shared shape for demo samples and future authorized native integrations.
 export function normalizeWearableSample(sample) {
   return {
@@ -425,6 +438,18 @@ export class MockFightCampConnector {
   constructor() {
     this.kind = "fightcamp";
   }
+  ensureDemoData(data) {
+    // The prototype uses a local sample source until an authorized adapter exists.
+    // Never replace a future official connection with synthetic sessions.
+    data.connections ??= {};
+    data.fightCampSessions ??= [];
+    if (data.connections.fightcamp?.status === "CONNECTED") return false;
+    const wasConnected = data.connections.fightcamp?.status === "MOCK_CONNECTED";
+    const previousCount = data.fightCampSessions?.length || 0;
+    if (!wasConnected) this.connect(data);
+    this.seedHistory(data);
+    return !wasConnected || (data.fightCampSessions?.length || 0) !== previousCount;
+  }
   connect(data) {
     data.connections.fightcamp = {
       status: "MOCK_CONNECTED",
@@ -521,9 +546,7 @@ export function demoData() {
     source: "Synthetic wearable demo",
     mode: "DEMO",
   };
-  const fightCamp = new MockFightCampConnector();
-  fightCamp.connect(d);
-  fightCamp.seedHistory(d);
+  new MockFightCampConnector().ensureDemoData(d);
   for (let i = 10; i >= 0; i--) {
     let date = day(new Date(today.getTime() - i * 86400000));
     d.wearables.push(
@@ -569,7 +592,7 @@ export function demoData() {
     },
   );
   d.checkins.push({
-    date: day(today),
+    date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
     weight: 74.6,
     urine: 2,
     mood: "Low",

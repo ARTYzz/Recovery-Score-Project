@@ -412,6 +412,8 @@ The source SHOULD remain traceable because different devices may calculate simil
 **Frequency:** Daily  
 **Target interaction:** 20–30 seconds
 
+After onboarding, the first Start action SHALL open Morning Check-In. On a later unlock or app return, the application SHALL open it automatically when no check-in is saved for the current local date. A completed check-in SHALL not prompt again that day. Today SHALL not require a manual entry button for this daily flow.
+
 The system SHALL automatically display available:
 
 - sleep;
@@ -504,6 +506,8 @@ The system SHALL NOT require detailed macro tracking.
 Power & Speed SHALL use punch and session data from FightCamp where an official integration is available. The athlete is not asked to perform or enter a separate Punch Test.
 
 Until official access is confirmed, the prototype SHALL use a clearly labelled mock FightCamp connector and synthetic sessions. The normalized session model supports punch count and optional speed, output, rounds, and session ID.
+
+After health-data consent and onboarding Start, the prototype SHALL load FightCamp mock sessions automatically. Existing consented local profiles SHALL receive the mock data on unlock. The athlete SHALL not need to press a Connect, Sync, or Load button for this sample source. The UI SHALL state that no real FightCamp account or API is connected.
 
 Punch count SHOULD be compared with a personal baseline from at least four distinct session days from the same source. Missing metrics remain unavailable. FightCamp data contributes primarily to Power & Speed.
 
