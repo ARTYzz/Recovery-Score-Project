@@ -152,93 +152,13 @@ class _UnlockScreenState extends State<UnlockScreen> {
       ]);
 }
 
-class ConnectHealthScreen extends StatefulWidget {
-  const ConnectHealthScreen(this.controller, {super.key});
-  final BoxerController controller;
-  @override
-  State<ConnectHealthScreen> createState() => _ConnectHealthScreenState();
-}
-
-class _ConnectHealthScreenState extends State<ConnectHealthScreen> {
-  String? source;
-  bool consent = false;
-  @override
-  Widget build(BuildContext context) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const PageHeader(title: 'Connect Health Data'),
-        const SizedBox(height: 12),
-        const Text('Prototype / Demo. No real wearable account is connected.',
-            style: TextStyle(color: AppColors.muted)),
-        const SizedBox(height: 22),
-        for (final item in [
-          ('apple', 'Apple Health', Icons.favorite_outline),
-          ('android', 'Health Connect', Icons.monitor_heart_outlined),
-          ('fightcamp', 'FightCamp', Icons.sports_mma_outlined)
-        ]) ...[
-          InkWell(
-              onTap: item.$1 == 'fightcamp'
-                  ? null
-                  : () => setState(() => source = item.$1),
-              child: AppCard(
-                  color: source == item.$1
-                      ? const Color(0xfff3fbd9)
-                      : Colors.white,
-                  child: Row(children: [
-                    Icon(item.$3, color: AppColors.ink),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(item.$2,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w800)),
-                          Text(
-                              item.$1 == 'fightcamp'
-                                  ? 'Mock data loads automatically after Start'
-                                  : 'Prototype / Demo data only',
-                              style: const TextStyle(
-                                  fontSize: 12, color: AppColors.muted))
-                        ])),
-                    if (source == item.$1)
-                      const Icon(Icons.check_circle, color: AppColors.teal)
-                  ]))),
-          const SizedBox(height: 10),
-        ],
-        const SizedBox(height: 10),
-        CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: consent,
-            onChanged: (v) => setState(() => consent = v == true),
-            title: const Text('I consent to local health-data processing',
-                style: TextStyle(fontSize: 13)),
-            controlAffinity: ListTileControlAffinity.leading),
-        const SizedBox(height: 18),
-        PrimaryButton('Use demo data',
-            onPressed: source == null ? null : () => _save(source)),
-        const SizedBox(height: 12),
-        OutlinedButton(
-            onPressed: () => _save(null),
-            child: const SizedBox(
-                width: double.infinity,
-                child: Center(child: Text('Skip for now')))),
-      ]);
-  Future<void> _save(String? choice) async {
-    try {
-      await widget.controller
-          .chooseHealthSource(consent: consent, source: choice);
-    } catch (e) {
-      widget.controller.showError(e);
-    }
-  }
-}
-
 class BaselineIntroScreen extends StatelessWidget {
   const BaselineIntroScreen(this.controller, {super.key});
   final BoxerController controller;
   @override
   Widget build(BuildContext context) {
     final camp = CampClock.fromProfile(controller.data?.profile);
+    final wearable = controller.data?.latestWearable;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionLabel('YOU ARE READY'),
       const SizedBox(height: 10),
@@ -269,7 +189,14 @@ class BaselineIntroScreen extends StatelessWidget {
       ])),
       const SizedBox(height: 22),
       const FieldTitle('Automatically tracked'),
-      const Text('Sleep  ·  HRV  ·  Resting HR'),
+      Text(
+          'Sleep ${wearable?.sleepMinutes == null ? 'Unavailable' : '${wearable!.sleepMinutes! ~/ 60} h ${wearable.sleepMinutes! % 60} min'}  ·  HRV ${wearable?.hrv?.round().toString() ?? 'Unavailable'} ms'),
+      Text(
+          'Resting HR ${wearable?.restingHr?.round().toString() ?? 'Unavailable'} bpm'),
+      const SizedBox(height: 8),
+      const Text(
+          'Demo wearable data is ready automatically. No Apple Health or Health Connect account is connected.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12)),
       const SizedBox(height: 18),
       const FieldTitle('Manual inputs'),
       const Text(

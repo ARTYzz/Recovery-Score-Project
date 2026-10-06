@@ -17,7 +17,6 @@ class BoxerController extends ChangeNotifier {
   String route = 'setup';
   String? error;
   bool busy = true;
-  String? selectedHealthSource;
 
   Assessment? get assessment => data == null ? null : engine.assess(data!);
 
@@ -44,7 +43,7 @@ class BoxerController extends ChangeNotifier {
     final current = data;
     if (current != null) {
       if (current.onboardingStage == 'connect') {
-        route = 'connect-health';
+        route = 'baseline-intro';
       } else if (current.onboardingStage == 'ready') {
         route = 'baseline-intro';
       } else if (current.morningDue) {
@@ -83,10 +82,11 @@ class BoxerController extends ChangeNotifier {
             fightDate: fightDate,
             officialWeighInWeight: officialWeight),
         privacyAcceptedAt: DateTime.now().toIso8601String(),
-        onboardingStage: 'connect');
+        onboardingStage: 'ready');
+    _addAutomaticDemoWearable(athlete);
     await vault.create(passphrase, athlete);
     data = athlete;
-    navigate('connect-health');
+    navigate('baseline-intro');
   }
 
   Future<void> tryDemo() async {
@@ -101,6 +101,11 @@ class BoxerController extends ChangeNotifier {
     if (data!.mockOnly && data!.demoAnchorDay == null) {
       data!.demoAnchorDay = data!.latestCheckIn?.date ?? localDay();
     }
+    if (data!.onboardingStage == 'connect') {
+      _addAutomaticDemoWearable(data!);
+      data!.onboardingStage = 'ready';
+      await vault.save();
+    }
     if (data!.healthAcceptedAt != null) {
       const MockFightCampSource().ensureDemoData(data!);
       await vault.save();
@@ -108,36 +113,20 @@ class BoxerController extends ChangeNotifier {
     navigate('today');
   }
 
-  Future<void> chooseHealthSource(
-      {required bool consent, String? source}) async {
-    final athlete = data!;
-    if (!consent) {
-      throw const FormatException(
-          'Confirm local health-data consent to continue.');
-    }
-    if (source != null && source != 'apple' && source != 'android') {
-      throw const FormatException('Choose a supported demo source.');
-    }
-    athlete.healthAcceptedAt = DateTime.now().toIso8601String();
-    selectedHealthSource = source;
-    if (source != null) {
-      final connector = MockHealthSource(source);
-      connector.connect(athlete);
-      connector.sync(
-          athlete,
-          WearableSample(
-              date: localDay(),
-              source: connector.sourceName,
-              mode: 'DEMO',
-              sleepMinutes: 437,
-              hrv: 66,
-              restingHr: 48,
-              heartRate: 74,
-              workoutMinutes: 52));
-    }
-    athlete.onboardingStage = 'ready';
-    await vault.save();
-    navigate('baseline-intro');
+  void _addAutomaticDemoWearable(AthleteData athlete) {
+    const source = MockHealthSource('mock');
+    source.connect(athlete);
+    source.sync(
+        athlete,
+        WearableSample(
+            date: athlete.currentDay,
+            source: source.sourceName,
+            mode: 'DEMO',
+            sleepMinutes: 437,
+            hrv: 66,
+            restingHr: 48,
+            heartRate: 74,
+            workoutMinutes: 52));
   }
 
   Future<void> start() async {
@@ -235,6 +224,11 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> connectDemo(String kind) async {
+    if (kind == 'mock') {
+      _addAutomaticDemoWearable(data!);
+      await _persistAndGo('connections');
+      return;
+    }
     if (data!.healthAcceptedAt == null) {
       throw const FormatException(
           'Grant local health-data consent before using demo data.');
@@ -256,6 +250,7 @@ class BoxerController extends ChangeNotifier {
     athlete.connections['apple'] = 'DISCONNECTED';
     athlete.connections['android'] = 'DISCONNECTED';
     athlete.connections['fightcamp'] = 'DISCONNECTED';
+    athlete.connections['mock'] = 'DISCONNECTED';
     await _persistAndGo('connections');
   }
 

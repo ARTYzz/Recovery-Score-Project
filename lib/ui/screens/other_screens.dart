@@ -311,7 +311,7 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('Privacy & consent'),
             subtitle: Text(
-                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health: ${data.healthAcceptedAt == null ? 'Not accepted' : 'Accepted'}'))
+                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Live health permission: ${data.healthAcceptedAt == null ? 'Not granted' : 'Granted'}'))
       ])),
       const SizedBox(height: 15),
       if (data.mockOnly) ...[
@@ -389,6 +389,25 @@ class ConnectionsScreen extends StatelessWidget {
           'All connections below are prototype data. No live wearable or FightCamp account is connected.',
           style: TextStyle(color: AppColors.muted)),
       const SizedBox(height: 18),
+      AppCard(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Demo wearable',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        Text(
+            data.connections['mock'] == 'MOCK_CONNECTED'
+                ? 'Connected automatically · synthetic Sleep, HRV and Resting HR'
+                : 'Disconnected · no demo wearable data',
+            style: const TextStyle(color: AppColors.muted)),
+        TextButton(
+            onPressed: () => data.connections['mock'] == 'MOCK_CONNECTED'
+                ? controller.disconnectDemo('mock')
+                : controller.connectDemo('mock'),
+            child: Text(data.connections['mock'] == 'MOCK_CONNECTED'
+                ? 'Disconnect demo data'
+                : 'Restore demo data'))
+      ])),
+      const SizedBox(height: 10),
       if (data.healthAcceptedAt == null) ...[
         PrimaryButton('I consent to local demo health data',
             onPressed: () => controller.grantHealthConsent()),

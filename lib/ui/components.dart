@@ -216,7 +216,7 @@ class NavBar extends StatelessWidget {
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           _item('today', 'Today', Icons.home_outlined),
           _item('training', 'Training', Icons.sports_mma_outlined),
-          _item('nutrition', 'Fuel', Icons.restaurant_outlined),
+          _item('nutrition', 'Food', Icons.restaurant_outlined),
           _item('camp', 'Camp', Icons.flag_outlined),
           _item('settings', 'Settings', Icons.settings_outlined),
         ]),

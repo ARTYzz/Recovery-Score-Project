@@ -6,7 +6,7 @@ import 'package:boxer_recovery/domain/athlete_data.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('new athlete can skip demo wearable data and complete morning check-in',
+  test('new athlete receives clearly labelled demo wearable data automatically',
       () async {
     SharedPreferences.setMockInitialValues({});
     final app = BoxerController();
@@ -17,10 +17,14 @@ void main() {
         fightDate: localDay(DateTime.now().add(const Duration(days: 30))),
         passphrase: 'test-passphrase',
         privacyAccepted: true);
-    expect(app.route, 'connect-health');
-    await app.chooseHealthSource(consent: true);
     expect(app.route, 'baseline-intro');
-    expect(app.data!.latestWearable, isNull);
+    expect(app.data!.healthAcceptedAt, isNull);
+    expect(app.data!.connections['mock'], 'MOCK_CONNECTED');
+    expect(app.data!.latestWearable?.mode, 'DEMO');
+    expect(app.data!.latestWearable?.source, 'Synthetic wearable demo');
+    expect(app.data!.latestWearable?.sleepMinutes, 437);
+    expect(app.data!.latestWearable?.hrv, 66);
+    expect(app.data!.latestWearable?.restingHr, 48);
     await app.start();
     expect(app.route, 'morning');
     await app.saveMorning(
@@ -29,11 +33,17 @@ void main() {
     app.lock();
     await app.unlock('test-passphrase');
     expect(app.route, 'today');
-    expect(app.data!.latestWearable, isNull);
+    expect(app.data!.latestWearable?.hrv, 66);
     expect(app.data!.connections['fightcamp'], 'MOCK_CONNECTED');
     final reopened = BoxerController();
     await reopened.initialize();
     expect(reopened.route, 'unlock');
+    await reopened.unlock('test-passphrase');
+    expect(reopened.data!.latestWearable?.sleepMinutes, 437);
+    await reopened.disconnectDemo('mock');
+    expect(reopened.data!.latestWearable, isNull);
+    await reopened.connectDemo('mock');
+    expect(reopened.data!.latestWearable?.mode, 'DEMO');
   });
 
   test('demo runs the full daily loop and survives app reload', () async {
