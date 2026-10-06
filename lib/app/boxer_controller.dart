@@ -83,7 +83,7 @@ class BoxerController extends ChangeNotifier {
             officialWeighInWeight: officialWeight),
         privacyAcceptedAt: DateTime.now().toIso8601String(),
         onboardingStage: 'ready');
-    _addAutomaticDemoWearable(athlete);
+    const AutomaticDemoHealthSources().ensure(athlete);
     await vault.create(passphrase, athlete);
     data = athlete;
     navigate('baseline-intro');
@@ -102,31 +102,15 @@ class BoxerController extends ChangeNotifier {
       data!.demoAnchorDay = data!.latestCheckIn?.date ?? localDay();
     }
     if (data!.onboardingStage == 'connect') {
-      _addAutomaticDemoWearable(data!);
       data!.onboardingStage = 'ready';
-      await vault.save();
     }
+    const AutomaticDemoHealthSources().ensure(data!);
+    await vault.save();
     if (data!.healthAcceptedAt != null) {
       const MockFightCampSource().ensureDemoData(data!);
       await vault.save();
     }
     navigate('today');
-  }
-
-  void _addAutomaticDemoWearable(AthleteData athlete) {
-    const source = MockHealthSource('mock');
-    source.connect(athlete);
-    source.sync(
-        athlete,
-        WearableSample(
-            date: athlete.currentDay,
-            source: source.sourceName,
-            mode: 'DEMO',
-            sleepMinutes: 437,
-            hrv: 66,
-            restingHr: 48,
-            heartRate: 74,
-            workoutMinutes: 52));
   }
 
   Future<void> start() async {
@@ -224,16 +208,7 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> connectDemo(String kind) async {
-    if (kind == 'mock') {
-      _addAutomaticDemoWearable(data!);
-      await _persistAndGo('connections');
-      return;
-    }
-    if (data!.healthAcceptedAt == null) {
-      throw const FormatException(
-          'Grant local health-data consent before using demo data.');
-    }
-    MockHealthSource(kind).connect(data!);
+    const AutomaticDemoHealthSources().restore(data!, kind);
     await _persistAndGo('connections');
   }
 
@@ -254,21 +229,6 @@ class BoxerController extends ChangeNotifier {
     await _persistAndGo('connections');
   }
 
-  Future<void> seedHealthHistory(String kind) async {
-    if (data!.healthAcceptedAt == null) {
-      throw const FormatException(
-          'Grant local health-data consent before using demo data.');
-    }
-    MockHealthSource(kind).seedHistory(data!);
-    await _persistAndGo('connections');
-  }
-
-  Future<void> grantHealthConsent() async {
-    data!.healthAcceptedAt = DateTime.now().toIso8601String();
-    const MockFightCampSource().ensureDemoData(data!);
-    await _persistAndGo('connections');
-  }
-
   Future<void> toggleNotifications() async {
     data!.notifications = !data!.notifications;
     await _persistAndGo('settings');
@@ -282,16 +242,22 @@ class BoxerController extends ChangeNotifier {
     }
     final last = athlete.latestWearable;
     athlete.demoDayOffset += 1;
-    if (athlete.healthAcceptedAt != null && last != null) {
-      athlete.wearables.add(WearableSample(
-          date: athlete.currentDay,
-          source: 'Synthetic wearable demo',
-          mode: 'DEMO',
-          hrv: last.hrv == null ? null : last.hrv! + 5,
-          restingHr: last.restingHr == null ? null : last.restingHr! - 2,
-          sleepMinutes:
-              last.sleepMinutes == null ? null : last.sleepMinutes! + 50,
-          workoutMinutes: null));
+    if (last != null) {
+      for (final kind in AutomaticDemoHealthSources.kinds) {
+        if (athlete.connections[kind] != 'MOCK_CONNECTED') continue;
+        final source = MockHealthSource(kind);
+        source.sync(
+            athlete,
+            WearableSample(
+                date: athlete.currentDay,
+                source: source.sourceName,
+                mode: 'DEMO',
+                hrv: last.hrv == null ? null : last.hrv! + 5,
+                restingHr: last.restingHr == null ? null : last.restingHr! - 2,
+                sleepMinutes:
+                    last.sleepMinutes == null ? null : last.sleepMinutes! + 50,
+                workoutMinutes: null));
+      }
     }
     await vault.save();
     navigate('morning');

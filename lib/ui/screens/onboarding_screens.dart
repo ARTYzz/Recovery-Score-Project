@@ -195,7 +195,7 @@ class BaselineIntroScreen extends StatelessWidget {
           'Resting HR ${wearable?.restingHr?.round().toString() ?? 'Unavailable'} bpm'),
       const SizedBox(height: 8),
       const Text(
-          'Demo wearable data is ready automatically. No Apple Health or Health Connect account is connected.',
+          'Apple Health and Health Connect demo sources are ready automatically. No real health account is connected.',
           style: TextStyle(color: AppColors.muted, fontSize: 12)),
       const SizedBox(height: 18),
       const FieldTitle('Manual inputs'),

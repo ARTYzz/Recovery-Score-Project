@@ -311,7 +311,7 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('Privacy & consent'),
             subtitle: Text(
-                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Live health permission: ${data.healthAcceptedAt == null ? 'Not granted' : 'Granted'}'))
+                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health sources: Demo only'))
       ])),
       const SizedBox(height: 15),
       if (data.mockOnly) ...[
@@ -386,33 +386,9 @@ class ConnectionsScreen extends StatelessWidget {
           onBack: () => controller.navigate('settings')),
       const SizedBox(height: 12),
       const Text(
-          'All connections below are prototype data. No live wearable or FightCamp account is connected.',
+          'Apple Health and Health Connect demo data load automatically. No live wearable account or platform permission is connected.',
           style: TextStyle(color: AppColors.muted)),
       const SizedBox(height: 18),
-      AppCard(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Demo wearable',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-        Text(
-            data.connections['mock'] == 'MOCK_CONNECTED'
-                ? 'Connected automatically · synthetic Sleep, HRV and Resting HR'
-                : 'Disconnected · no demo wearable data',
-            style: const TextStyle(color: AppColors.muted)),
-        TextButton(
-            onPressed: () => data.connections['mock'] == 'MOCK_CONNECTED'
-                ? controller.disconnectDemo('mock')
-                : controller.connectDemo('mock'),
-            child: Text(data.connections['mock'] == 'MOCK_CONNECTED'
-                ? 'Disconnect demo data'
-                : 'Restore demo data'))
-      ])),
-      const SizedBox(height: 10),
-      if (data.healthAcceptedAt == null) ...[
-        PrimaryButton('I consent to local demo health data',
-            onPressed: () => controller.grantHealthConsent()),
-        const SizedBox(height: 15),
-      ],
       for (final kind in ['apple', 'android', 'fightcamp']) ...[
         AppCard(
             child:
@@ -425,20 +401,23 @@ class ConnectionsScreen extends StatelessWidget {
                       : 'FightCamp',
               style:
                   const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-          Text(data.connections[kind] ?? 'Unavailable',
+          Text(
+              data.connections[kind] == 'MOCK_CONNECTED'
+                  ? kind == 'fightcamp'
+                      ? 'Demo connected automatically · synthetic punch data'
+                      : 'Demo connected automatically · Sleep, HRV, Resting HR'
+                  : data.connections[kind] == 'DISCONNECTED'
+                      ? 'Demo disconnected · no data from this source'
+                      : 'Unavailable · no live connection',
               style: const TextStyle(color: AppColors.muted)),
-          if (kind != 'fightcamp' && data.healthAcceptedAt != null)
-            Row(children: [
-              TextButton(
-                  onPressed: () => controller.connectDemo(kind),
-                  child: const Text('Use demo data')),
-              TextButton(
-                  onPressed: () => controller.seedHealthHistory(kind),
-                  child: const Text('Add history')),
-              TextButton(
-                  onPressed: () => controller.disconnectDemo(kind),
-                  child: const Text('Disconnect'))
-            ])
+          if (kind != 'fightcamp')
+            TextButton(
+                onPressed: () => data.connections[kind] == 'MOCK_CONNECTED'
+                    ? controller.disconnectDemo(kind)
+                    : controller.connectDemo(kind),
+                child: Text(data.connections[kind] == 'MOCK_CONNECTED'
+                    ? 'Disconnect demo data'
+                    : 'Restore demo data'))
         ])),
         const SizedBox(height: 10)
       ],

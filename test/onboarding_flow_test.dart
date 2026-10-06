@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:boxer_recovery/app/boxer_controller.dart';
+import 'package:boxer_recovery/data/athlete_vault.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
 
 void main() {
@@ -19,9 +20,11 @@ void main() {
         privacyAccepted: true);
     expect(app.route, 'baseline-intro');
     expect(app.data!.healthAcceptedAt, isNull);
-    expect(app.data!.connections['mock'], 'MOCK_CONNECTED');
+    expect(app.data!.connections['apple'], 'MOCK_CONNECTED');
+    expect(app.data!.connections['android'], 'MOCK_CONNECTED');
     expect(app.data!.latestWearable?.mode, 'DEMO');
-    expect(app.data!.latestWearable?.source, 'Synthetic wearable demo');
+    expect(app.data!.wearables.map((sample) => sample.source),
+        containsAll(['Apple Health demo', 'Health Connect demo']));
     expect(app.data!.latestWearable?.sleepMinutes, 437);
     expect(app.data!.latestWearable?.hrv, 66);
     expect(app.data!.latestWearable?.restingHr, 48);
@@ -40,10 +43,49 @@ void main() {
     expect(reopened.route, 'unlock');
     await reopened.unlock('test-passphrase');
     expect(reopened.data!.latestWearable?.sleepMinutes, 437);
-    await reopened.disconnectDemo('mock');
+    await reopened.disconnectDemo('apple');
+    expect(reopened.data!.connections['apple'], 'DISCONNECTED');
+    expect(reopened.data!.latestWearable, isNotNull);
+    await reopened.disconnectDemo('android');
     expect(reopened.data!.latestWearable, isNull);
-    await reopened.connectDemo('mock');
+    reopened.lock();
+    await reopened.unlock('test-passphrase');
+    expect(reopened.data!.connections['apple'], 'DISCONNECTED');
+    expect(reopened.data!.connections['android'], 'DISCONNECTED');
+    expect(reopened.data!.latestWearable, isNull);
+    await reopened.connectDemo('apple');
+    expect(reopened.data!.connections['android'], 'DISCONNECTED');
     expect(reopened.data!.latestWearable?.mode, 'DEMO');
+  });
+
+  test('existing generic demo records migrate once and preserve source history',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final athlete = AthleteData(onboardingStage: 'complete');
+    athlete.connections['mock'] = 'MOCK_CONNECTED';
+    for (var daysAgo = 6; daysAgo >= 0; daysAgo--) {
+      athlete.wearables.add(WearableSample(
+          date: localDay(DateTime.now().subtract(Duration(days: daysAgo))),
+          source: 'Synthetic wearable demo',
+          mode: 'DEMO',
+          sleepMinutes: 420,
+          hrv: 65,
+          restingHr: 48));
+    }
+    await AthleteVault().create('test-passphrase', athlete);
+    final app = BoxerController();
+    await app.initialize();
+    await app.unlock('test-passphrase');
+    expect(app.data!.connections['apple'], 'MOCK_CONNECTED');
+    expect(app.data!.connections['android'], 'MOCK_CONNECTED');
+    expect(app.data!.wearables.length, 14);
+    expect(
+        app.data!.wearables
+            .where((sample) => sample.source == 'Synthetic wearable demo'),
+        isEmpty);
+    app.lock();
+    await app.unlock('test-passphrase');
+    expect(app.data!.wearables.length, 14);
   });
 
   test('demo runs the full daily loop and survives app reload', () async {

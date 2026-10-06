@@ -49,6 +49,63 @@ class MockHealthSource {
   }
 }
 
+/// Populates both prototype adapters without requesting platform permissions.
+/// Existing generic demo samples are copied so personal baselines survive an
+/// upgrade from the earlier single-source prototype.
+class AutomaticDemoHealthSources {
+  const AutomaticDemoHealthSources();
+
+  static const kinds = ['apple', 'android'];
+
+  void ensure(AthleteData data) {
+    final generic = data.wearables
+        .where((sample) => sample.source == 'Synthetic wearable demo')
+        .toList();
+    for (final kind in kinds) {
+      final status = data.connections[kind];
+      if (status == 'DISCONNECTED' || status == 'CONNECTED') continue;
+      final source = MockHealthSource(kind);
+      source.connect(data);
+      for (final sample in generic) {
+        source.sync(data, _copy(sample, source.sourceName));
+      }
+      if (!data.wearables.any((sample) => sample.source == source.sourceName)) {
+        source.sync(
+            data,
+            WearableSample(
+                date: data.currentDay,
+                source: source.sourceName,
+                mode: 'DEMO',
+                sleepMinutes: 437,
+                hrv: 66,
+                restingHr: 48,
+                heartRate: 74,
+                workoutMinutes: 52));
+      }
+    }
+    data.wearables
+        .removeWhere((sample) => sample.source == 'Synthetic wearable demo');
+    data.connections.remove('mock');
+  }
+
+  void restore(AthleteData data, String kind) {
+    if (!kinds.contains(kind)) return;
+    data.connections.remove(kind);
+    ensure(data);
+  }
+
+  WearableSample _copy(WearableSample sample, String source) => WearableSample(
+        date: sample.date,
+        source: source,
+        mode: 'DEMO',
+        sleepMinutes: sample.sleepMinutes,
+        hrv: sample.hrv,
+        restingHr: sample.restingHr,
+        heartRate: sample.heartRate,
+        workoutMinutes: sample.workoutMinutes,
+      );
+}
+
 class MockFightCampSource {
   const MockFightCampSource();
 
@@ -91,7 +148,6 @@ class DemoDataFactory {
           fightDate: localDay(now.add(const Duration(days: 32))),
           officialWeighInWeight: 72.5),
       privacyAcceptedAt: now.toIso8601String(),
-      healthAcceptedAt: now.toIso8601String(),
       onboardingStage: 'complete',
       mockOnly: true,
       demoAnchorDay: localDay(now),
@@ -158,6 +214,7 @@ class DemoDataFactory {
         'safety': <String>[],
       });
     }
+    const AutomaticDemoHealthSources().ensure(data);
     return data;
   }
 }
