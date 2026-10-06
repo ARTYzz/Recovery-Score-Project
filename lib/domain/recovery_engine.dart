@@ -124,23 +124,35 @@ class SafetyFlag {
 
 class SafetyGate {
   List<SafetyFlag> evaluate(AthleteData data) {
-    final check = data.latestCheckIn;
+    final check =
+        data.latestCheckIn?.date == data.currentDay ? data.latestCheckIn : null;
+    final recent = RecentTraining(data, 7);
     final flags = <SafetyFlag>[];
     if (check?.headSymptoms == true) {
       flags.add(const SafetyFlag('HEAD_SYMPTOMS', 'brain',
           'New symptoms after head contact. Avoid sparring and other head-impact training. Seek qualified medical evaluation.'));
     }
-    if (data.sessions.reversed
-            .take(7)
+    if (recent.sessions
             .where((e) => e.type == 'Sparring' && e.contact == 'Heavy')
             .length >=
         2) {
       flags.add(const SafetyFlag('HEAD_LOAD', 'brain',
           'Repeated heavy head contact reported recently. Avoid further head-impact training and consider qualified evaluation.'));
     }
-    if (check?.painSeverity == 'Severe') {
+    if (check?.painSeverity == 'Severe' ||
+        RecentTraining(data, 2)
+            .sessions
+            .any((e) => e.soreness.isNotEmpty && e.painSeverity == 'Severe')) {
       flags.add(const SafetyFlag('PHYSICAL', 'body',
           'Severe pain reported. Avoid loading the affected area and seek appropriate professional assessment.'));
+    }
+    if (RecentTraining(data, 2).sessions.any((e) =>
+        e.type == 'Sparring' &&
+        e.contact != 'None' &&
+        e.soreness.contains('Head') &&
+        e.painSeverity != 'Sore')) {
+      flags.add(const SafetyFlag('HEAD_PAIN', 'brain',
+          'Head pain was reported after contact. Avoid sparring and head-impact activity, and seek qualified medical evaluation.'));
     }
     if ((check?.urine ?? 0) >= 4) {
       flags.add(const SafetyFlag('HYDRATION', 'fuel',
@@ -165,6 +177,35 @@ class SafetyGate {
   }
 }
 
+/// Uses calendar days rather than the last N records, so old sessions expire.
+class RecentTraining {
+  RecentTraining(AthleteData data, int days)
+      : sessions = data.sessions.where((session) {
+          final day = parsedDay(session.date);
+          if (day == null) return false;
+          final age = DateTime(data.currentDate.year, data.currentDate.month,
+                  data.currentDate.day)
+              .difference(day)
+              .inDays;
+          return age >= 0 && age < days;
+        }).toList();
+
+  final List<TrainingSession> sessions;
+
+  List<TrainingSession> ofType(String type) =>
+      sessions.where((session) => session.type == type).toList();
+
+  int minutes(String type) =>
+      ofType(type).fold(0, (sum, session) => sum + session.duration);
+
+  bool hasArea(String area) => sessions.any((e) => e.soreness.contains(area));
+  bool get upperSoreness => ['Shoulders', 'Arms', 'Neck', 'Back'].any(hasArea);
+  bool get lowerSoreness => ['Legs', 'Back'].any(hasArea);
+  bool get painful => sessions.any((e) =>
+      e.soreness.isNotEmpty &&
+      (e.painSeverity == 'Painful' || e.painSeverity == 'Severe'));
+}
+
 class DomainResult {
   const DomainResult(this.status, this.reasons);
   final String status;
@@ -179,6 +220,220 @@ class RecoveryAction {
   final int seconds;
 }
 
+class TrainingAdvice {
+  const TrainingAdvice(this.status, this.title, this.reason,
+      {this.allowedLabel, this.avoidLabel});
+  final String status; // AVAILABLE, MODIFIED, AVOID, or INSUFFICIENT_DATA.
+  final String title;
+  final String reason;
+  final String? allowedLabel;
+  final String? avoidLabel;
+}
+
+/// Converts independent domains and recent, type-specific loads into guidance.
+/// These are conservative prototype rules, not medical clearance.
+class TrainingAdvisor {
+  Map<String, TrainingAdvice> evaluate(
+      AthleteData data,
+      Map<String, DomainResult> domains,
+      List<SafetyFlag> safety,
+      CampState camp) {
+    final recent = RecentTraining(data, 2);
+    final strength = recent.ofType('Strength');
+    final technical = recent.ofType('Boxing / Technical');
+    final conditioning = recent.ofType('Conditioning');
+    final upperPain = recent.upperSoreness ||
+        (data.latestCheckIn?.date == data.currentDay &&
+            data.latestCheckIn!.soreness.any((area) =>
+                ['Shoulders', 'Arms', 'Neck', 'Back'].contains(area)));
+    final lowerPain = recent.lowerSoreness ||
+        (data.latestCheckIn?.date == data.currentDay &&
+            data.latestCheckIn!.soreness
+                .any((area) => ['Legs', 'Back'].contains(area)));
+    final seriousPain = recent.painful ||
+        (data.latestCheckIn?.date == data.currentDay &&
+            ['Moderate', 'Severe'].contains(data.latestCheckIn!.painSeverity));
+    final longStrength = strength.any((e) => e.duration >= 60) ||
+        recent.minutes('Strength') >= 75;
+    final hardStrength = strength.any((e) => e.intensity == 'Hard');
+    final longTechnical = technical.any((e) => e.duration >= 60) ||
+        recent.minutes('Boxing / Technical') >= 75;
+    final hardTechnical = technical.any((e) => e.intensity == 'Hard');
+    final longConditioning = conditioning.any((e) => e.duration >= 60) ||
+        recent.minutes('Conditioning') >= 75;
+    final hardConditioning = conditioning.any((e) => e.intensity == 'Hard');
+    final enoughData = domains.values
+            .where((domain) => domain.status != 'INSUFFICIENT_DATA')
+            .length >=
+        4;
+    final headConcern = safety.any(
+        (flag) => flag.code == 'HEAD_SYMPTOMS' || flag.code == 'HEAD_PAIN');
+    final headLoad = safety.any((flag) => flag.code == 'HEAD_LOAD');
+    final hydrationConcern = safety.any(
+        (flag) => flag.code == 'HYDRATION' || flag.code == 'WEIGHT_CHANGE');
+    final severePhysical = safety.any((flag) => flag.code == 'PHYSICAL');
+    const unknown = TrainingAdvice('INSUFFICIENT_DATA', 'More data needed',
+        'Complete the check-in and build a personal baseline before a positive training suggestion.');
+    if (headConcern) {
+      return {
+        for (final type in [
+          'Sparring',
+          'Boxing / Technical',
+          'Conditioning',
+          'Strength'
+        ])
+          type: TrainingAdvice('AVOID', 'Pause training and get assessed',
+              'Head pain or symptoms after contact need qualified evaluation before further training.',
+              avoidLabel: type)
+      };
+    }
+    if (severePhysical) {
+      return {
+        for (final type in [
+          'Sparring',
+          'Boxing / Technical',
+          'Conditioning',
+          'Strength'
+        ])
+          type: TrainingAdvice('AVOID', 'Pause loading and get assessed',
+              'Severe pain was reported. Avoid training until the affected area is assessed.',
+              avoidLabel: type)
+      };
+    }
+
+    final advice = <String, TrainingAdvice>{};
+    if (headLoad ||
+        domains['brain']!.status == 'RESTRICTED' ||
+        camp.phase == 'FIGHT_WEEK') {
+      advice['Sparring'] = TrainingAdvice(
+          'AVOID',
+          'Avoid sparring today',
+          headLoad
+              ? 'Repeated heavy head contact was logged in the last 7 days.'
+              : camp.phase == 'FIGHT_WEEK'
+                  ? 'Fight-week plan favours avoiding sparring.'
+                  : domains['brain']!.reasons.join(' · '),
+          avoidLabel: 'Sparring');
+    } else if (upperPain && (seriousPain || longStrength)) {
+      advice['Sparring'] = const TrainingAdvice('AVOID', 'Skip sparring today',
+          'Shoulder, arm, neck or back pain after training can limit safe defence and punching.',
+          avoidLabel: 'Sparring with upper-body pain');
+    } else if (domains['brain']!.status == 'CAUTION' ||
+        domains['sleep']!.status == 'RESTRICTED' ||
+        hydrationConcern) {
+      advice['Sparring'] = TrainingAdvice(
+          'MODIFIED',
+          'Avoid hard contact',
+          domains['brain']!.status == 'CAUTION'
+              ? domains['brain']!.reasons.join(' · ')
+              : hydrationConcern
+                  ? 'Hydration or weight trend needs attention before intense work.'
+                  : 'Sleep and heart signals need recovery before intense work.',
+          avoidLabel: 'Hard sparring');
+    } else {
+      advice['Sparring'] = enoughData && domains['brain']!.status == 'READY'
+          ? const TrainingAdvice('AVAILABLE', 'Sparring can be considered',
+              'No head-impact warning is reported in the available data. Follow your coach and safety checks.',
+              allowedLabel: 'Sparring')
+          : unknown;
+    }
+
+    if (upperPain && (seriousPain || longStrength)) {
+      advice['Boxing / Technical'] = const TrainingAdvice(
+          'MODIFIED',
+          'Footwork only; rest the shoulder',
+          'Upper-body pain after training makes further punching load a poor choice today.',
+          allowedLabel: 'No-contact footwork',
+          avoidLabel: 'Pads and bag work with upper-body pain');
+    } else if (headLoad ||
+        hydrationConcern ||
+        (hardTechnical && longTechnical) ||
+        domains['body']!.status == 'CAUTION') {
+      advice['Boxing / Technical'] = TrainingAdvice(
+          'MODIFIED',
+          'Keep technical work light',
+          headLoad
+              ? 'Keep drills strictly no-contact after repeated head contact.'
+              : hydrationConcern
+                  ? 'Hydration or weight trend needs attention before hard technical work.'
+                  : hardTechnical && longTechnical
+                      ? 'A long hard technical session was logged recently.'
+                      : domains['body']!.reasons.join(' · '),
+          allowedLabel: 'Light no-contact technique',
+          avoidLabel: 'Hard pads or bag work');
+    } else {
+      advice['Boxing / Technical'] = enoughData
+          ? const TrainingAdvice('AVAILABLE', 'Technical boxing is an option',
+              'No specific technical-load restriction appears in the available data.',
+              allowedLabel: 'Boxing / Technical')
+          : unknown;
+    }
+
+    if (lowerPain && seriousPain) {
+      advice['Conditioning'] = const TrainingAdvice(
+          'MODIFIED',
+          'Avoid leg-loading conditioning',
+          'Pain in the legs or back was reported; avoid running and intervals that aggravate it.',
+          avoidLabel: 'Leg-loading conditioning');
+    } else if ((hardConditioning && longConditioning) ||
+        domains['sleep']!.status == 'RESTRICTED' ||
+        hydrationConcern ||
+        (lowerPain && longConditioning)) {
+      advice['Conditioning'] = TrainingAdvice(
+          'MODIFIED',
+          'Easy aerobic work only',
+          hardConditioning && longConditioning
+              ? 'A long hard conditioning session was logged recently; skip another interval session.'
+              : hydrationConcern
+                  ? 'Hydration or weight trend needs attention before hard conditioning.'
+                  : lowerPain
+                      ? 'Leg or back soreness was reported after a long session.'
+                      : 'Sleep and heart signals call for reduced intensity.',
+          allowedLabel: 'Easy conditioning',
+          avoidLabel: 'Hard conditioning');
+    } else {
+      advice['Conditioning'] = enoughData
+          ? const TrainingAdvice('AVAILABLE', 'Conditioning is an option',
+              'No specific conditioning restriction appears in the available data.',
+              allowedLabel: 'Conditioning')
+          : unknown;
+    }
+
+    if ((upperPain || lowerPain) && (seriousPain || longStrength)) {
+      advice['Strength'] = TrainingAdvice(
+          'AVOID',
+          'Rest the ${upperPain ? 'upper body' : 'affected area'} today',
+          'A ${longStrength ? 'long ' : ''}strength session and ${seriousPain ? 'pain' : 'soreness'} were reported. Skip another strength session that loads this area.',
+          avoidLabel: 'Strength for affected area');
+    } else if (hardStrength ||
+        longStrength ||
+        upperPain ||
+        lowerPain ||
+        hydrationConcern ||
+        domains['sleep']!.status == 'RESTRICTED') {
+      advice['Strength'] = TrainingAdvice(
+          'MODIFIED',
+          'Skip heavy lifting today',
+          upperPain || lowerPain
+              ? 'Soreness was reported; avoid loading the sore area.'
+              : hydrationConcern
+                  ? 'Hydration or weight trend needs attention before heavy lifting.'
+                  : longStrength || hardStrength
+                      ? 'A long or hard strength session was logged recently.'
+                      : 'Sleep and heart signals call for a lighter session.',
+          allowedLabel: 'Light strength away from sore areas',
+          avoidLabel: 'Heavy strength');
+    } else {
+      advice['Strength'] = enoughData
+          ? const TrainingAdvice('AVAILABLE', 'Strength is an option',
+              'No specific strength-load restriction appears in the available data.',
+              allowedLabel: 'Strength')
+          : unknown;
+    }
+    return advice;
+  }
+}
+
 class Assessment {
   Assessment(
       {required this.camp,
@@ -188,6 +443,7 @@ class Assessment {
       required this.reason,
       required this.allowed,
       required this.avoid,
+      required this.trainingGuidance,
       required this.action,
       required this.baselines});
   final CampState camp;
@@ -197,6 +453,7 @@ class Assessment {
   final String reason;
   final List<String> allowed;
   final List<String> avoid;
+  final Map<String, TrainingAdvice> trainingGuidance;
   final RecoveryAction action;
   final Map<String, Baseline> baselines;
 
@@ -221,9 +478,12 @@ class RecoveryEngine {
     final sleep = baseline.wearable((e) => e.sleepMinutes?.toDouble());
     final punchBaseline = baseline.punch();
     final wear = data.latestWearable;
-    final check = data.latestCheckIn;
-    final nutrition = data.latestNutrition;
-    final training = data.latestTraining;
+    final check =
+        data.latestCheckIn?.date == data.currentDay ? data.latestCheckIn : null;
+    final nutrition = data.latestNutrition?.date == data.currentDay
+        ? data.latestNutrition
+        : null;
+    final recent = RecentTraining(data, 2);
     final punch = data.connections['fightcamp'] == 'MOCK_CONNECTED' ||
             data.connections['fightcamp'] == 'CONNECTED'
         ? data.latestFightCamp
@@ -251,6 +511,11 @@ class RecoveryEngine {
           wear!.restingHr! > rhr.value! * 1.1) {
         reasons.add('Resting HR above your baseline');
       }
+      if (recent
+          .ofType('Conditioning')
+          .any((e) => e.intensity == 'Hard' && e.duration >= 60)) {
+        reasons.add('Long hard conditioning session reported recently');
+      }
       final status = reasons.length >= 2
           ? 'RESTRICTED'
           : reasons.isNotEmpty
@@ -274,13 +539,21 @@ class RecoveryEngine {
       }
       if (nutrition?.meal == 'No') reasons.add('Post-training meal missed');
       if (nutrition?.protein == 'No') reasons.add('Protein plan incomplete');
+      if (recent
+          .ofType('Conditioning')
+          .any((e) => e.intensity == 'Hard' && e.duration >= 60)) {
+        reasons.add('Long hard conditioning increases refuelling attention');
+      }
       domains['fuel'] =
           DomainResult(reasons.isEmpty ? 'READY' : 'CAUTION', reasons);
     }
-    if (training != null || check?.headSymptoms == true) {
+    if (recent.ofType('Sparring').isNotEmpty || check?.headSymptoms == true) {
       final reasons = <String>[];
-      if (training?.type == 'Sparring') {
-        reasons.add('${training!.rounds} sparring rounds reported');
+      for (final session in recent.ofType('Sparring')) {
+        if (session.contact != 'None' || session.rounds >= 6) {
+          reasons.add(
+              '${session.rounds} sparring rounds · ${session.contact.toLowerCase()} contact');
+        }
       }
       domains['brain'] =
           DomainResult(reasons.isEmpty ? 'READY' : 'CAUTION', reasons);
@@ -299,14 +572,38 @@ class RecoveryEngine {
             : ['Learning your FightCamp punch baseline'],
       );
     }
-    if (check?.soreness.isNotEmpty == true ||
-        training?.soreness.isNotEmpty == true) {
-      final soreness = check?.soreness.isNotEmpty == true
-          ? check!.soreness
-          : training!.soreness;
+    final hardPowerLoad = recent.sessions.any((e) =>
+        (e.type == 'Strength' || e.type == 'Boxing / Technical') &&
+        e.intensity == 'Hard' &&
+        e.duration >= 60);
+    if (hardPowerLoad && domains['power']!.status != 'RESTRICTED') {
+      final current = domains['power']!;
+      domains['power'] = DomainResult('CAUTION', [
+        ...current.reasons,
+        'Long hard strength or technical load reported; a power change has not been measured'
+      ]);
+    }
+    final soreAreas = <String>{
+      if (check?.date == data.currentDay) ...check!.soreness,
+      for (final session in recent.sessions) ...session.soreness
+    };
+    final longStrength = recent.ofType('Strength').any((e) => e.duration >= 60);
+    final longTechnical = recent
+        .ofType('Boxing / Technical')
+        .any((e) => e.duration >= 60 && e.intensity == 'Hard');
+    final soreAfterLongStrength = longStrength &&
+        soreAreas.any((area) =>
+            ['Shoulders', 'Arms', 'Neck', 'Back', 'Legs'].contains(area));
+    final painful = recent.painful || check?.painSeverity == 'Severe';
+    if (soreAreas.isNotEmpty || longStrength || longTechnical) {
+      final reasons = <String>[
+        if (soreAreas.isNotEmpty)
+          'Reported soreness/pain: ${soreAreas.join(', ')}',
+        if (longStrength) 'Strength load of 60 min or more reported',
+        if (longTechnical) 'Long hard technical boxing reported'
+      ];
       domains['body'] = DomainResult(
-          check?.painSeverity == 'Severe' ? 'RESTRICTED' : 'CAUTION',
-          ['Soreness reported: ${soreness.join(', ')}']);
+          painful || soreAfterLongStrength ? 'RESTRICTED' : 'CAUTION', reasons);
     }
     if (check?.mood.isNotEmpty == true) {
       domains['mind'] = DomainResult(
@@ -323,52 +620,54 @@ class RecoveryEngine {
       'CAUTION': 2,
       'RESTRICTED': 3
     };
+    const tiePriority = {
+      'brain': 6,
+      'body': 5,
+      'sleep': 4,
+      'fuel': 3,
+      'power': 2,
+      'mind': 1
+    };
     String? limiter = safety.isNotEmpty ? safety.first.domain : null;
     if (limiter == null) {
       for (final key in domainKeys) {
         final status = domains[key]!.status;
         if ((rank[status] ?? 0) >= 2 &&
             (limiter == null ||
-                rank[status]! > rank[domains[limiter]!.status]!)) {
+                rank[status]! > rank[domains[limiter]!.status]! ||
+                (rank[status] == rank[domains[limiter]!.status] &&
+                    tiePriority[key]! > tiePriority[limiter]!))) {
           limiter = key;
         }
       }
     }
-    final allowed = <String>{'Boxing / Technical', 'Conditioning', 'Strength'};
-    final avoid = <String>{};
-    if (domains['brain']!.status == 'RESTRICTED') {
-      avoid.add('Sparring');
-    } else if (domains['brain']!.status == 'CAUTION') {
-      avoid.add('Hard sparring');
-    } else if (domains['brain']!.status == 'READY') {
-      allowed.add('Sparring');
-    }
-    if (domains['sleep']!.status == 'RESTRICTED') {
-      avoid.add('Hard conditioning');
-    }
-    if (domains['body']!.status == 'RESTRICTED') {
-      avoid.add('Strength for affected area');
-    }
-    if (camp.phase == 'FIGHT_WEEK') avoid.add('Sparring');
-    if (safety.isNotEmpty) allowed.remove('Sparring');
-    if (domains.values.where((e) => e.status != 'INSUFFICIENT_DATA').length <
-            4 &&
-        safety.isEmpty) {
-      allowed.clear();
-      avoid.clear();
-    }
+    final guidance = TrainingAdvisor().evaluate(data, domains, safety, camp);
+    final allowed = <String>{
+      for (final advice in guidance.values)
+        if (advice.allowedLabel != null) advice.allowedLabel!
+    };
+    final avoid = <String>{
+      for (final advice in guidance.values)
+        if (advice.avoidLabel != null) advice.avoidLabel!
+    };
     final sleepStatus = domains['sleep']!.status;
     final action = ['CAUTION', 'RESTRICTED'].contains(sleepStatus)
         ? const RecoveryAction('breathing', '10 min breathing down-regulation',
             'Sleep & Heart needs attention today.', 600)
-        : domains['body']!.status == 'CAUTION'
-            ? const RecoveryAction('mobility', '10 min gentle mobility',
-                'Body soreness is present today.', 600)
-            : const RecoveryAction(
+        : domains['body']!.status == 'RESTRICTED'
+            ? const RecoveryAction(
                 'early-bed',
                 'Prepare for an earlier bedtime',
-                'Protect recovery before tomorrow.',
-                600);
+                'Body pain or heavy load was reported; avoid adding more load tonight.',
+                600)
+            : domains['body']!.status == 'CAUTION'
+                ? const RecoveryAction('mobility', '10 min gentle mobility',
+                    'Body soreness is present today.', 600)
+                : const RecoveryAction(
+                    'early-bed',
+                    'Prepare for an earlier bedtime',
+                    'Protect recovery before tomorrow.',
+                    600);
     final assessed =
         domains.values.where((e) => e.status != 'INSUFFICIENT_DATA').length;
     return Assessment(
@@ -383,6 +682,7 @@ class RecoveryEngine {
               : 'No primary limiter from the available data',
       allowed: allowed.toList(),
       avoid: avoid.toList(),
+      trainingGuidance: guidance,
       action: action,
       baselines: {
         'hrv': hrv,

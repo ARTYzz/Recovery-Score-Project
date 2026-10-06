@@ -165,7 +165,8 @@ class TrainingSession {
       required this.intensity,
       this.rounds = 0,
       this.contact = 'Light',
-      this.soreness = const []});
+      this.soreness = const [],
+      this.painSeverity = 'Sore'});
   final String date;
   final String type;
   final int duration;
@@ -173,6 +174,7 @@ class TrainingSession {
   final int rounds;
   final String contact;
   final List<String> soreness;
+  final String painSeverity;
 
   factory TrainingSession.fromJson(Map<String, dynamic> json) =>
       TrainingSession(
@@ -184,6 +186,7 @@ class TrainingSession {
         contact: json['contact'] as String? ?? 'Light',
         soreness:
             (json['soreness'] as List? ?? []).map((e) => e.toString()).toList(),
+        painSeverity: json['painSeverity'] as String? ?? 'Sore',
       );
   Map<String, dynamic> toJson() => {
         'date': date,
@@ -193,6 +196,7 @@ class TrainingSession {
         'rounds': rounds,
         'contact': contact,
         'soreness': soreness,
+        'painSeverity': painSeverity,
       };
 }
 

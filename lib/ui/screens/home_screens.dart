@@ -124,7 +124,7 @@ class TodayScreen extends StatelessWidget {
             child: Row(children: [
               Expanded(
                   child: Text(
-                      result.avoid.contains('Sparring')
+                      result.trainingGuidance['Sparring']?.status == 'AVOID'
                           ? 'Skip sparring today'
                           : 'Review training guidance',
                       style: const TextStyle(
@@ -432,24 +432,6 @@ class TrainingGuidanceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final result = controller.assessment!;
-    String guidance(String load) {
-      if (load == 'Sparring') {
-        if (result.avoid.contains('Sparring')) return 'Avoid today';
-        if (result.avoid.contains('Hard sparring')) return 'Avoid hard contact';
-      }
-      if (load == 'Conditioning' &&
-          result.avoid.contains('Hard conditioning')) {
-        return 'Easy or moderate only';
-      }
-      if (load == 'Strength' &&
-          result.avoid.contains('Strength for affected area')) {
-        return 'Avoid loading painful area';
-      }
-      return result.allowed.contains(load)
-          ? 'You can train'
-          : 'Wait for more data';
-    }
-
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       PageHeader(
           title: 'Training Today',
@@ -490,22 +472,48 @@ class TrainingGuidanceScreen extends StatelessWidget {
         'Conditioning',
         'Strength'
       ]) ...[
-        AppCard(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(children: [
-              Expanded(
-                  child: Text(load,
-                      style: const TextStyle(fontWeight: FontWeight.w800))),
-              Text(guidance(load),
-                  style: TextStyle(
-                      color: guidance(load).startsWith('Avoid')
-                          ? AppColors.red
-                          : guidance(load) == 'Wait for more data'
-                              ? AppColors.muted
-                              : AppColors.teal,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800))
-            ])),
+        Builder(builder: (context) {
+          final advice = result.trainingGuidance[load]!;
+          final color = advice.status == 'AVOID'
+              ? AppColors.red
+              : advice.status == 'MODIFIED'
+                  ? AppColors.amber
+                  : advice.status == 'AVAILABLE'
+                      ? AppColors.teal
+                      : AppColors.muted;
+          return AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                          child: Text(load,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800))),
+                      Text(
+                          advice.status == 'AVOID'
+                              ? 'Avoid'
+                              : advice.status == 'MODIFIED'
+                                  ? 'Modify'
+                                  : advice.status == 'AVAILABLE'
+                                      ? 'Can train'
+                                      : 'No data',
+                          style: TextStyle(
+                              color: color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800))
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(advice.title,
+                        style: TextStyle(
+                            color: color, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(advice.reason,
+                        style: const TextStyle(
+                            color: AppColors.muted, fontSize: 12))
+                  ]));
+        }),
         const SizedBox(height: 9)
       ],
       const SizedBox(height: 12),

@@ -199,6 +199,11 @@ class _TrainingScreenState extends State<TrainingScreen> {
   int rounds = 4;
   int duration = 30;
   final soreness = <String>{};
+  String painSeverity = 'Sore';
+
+  void _toggleSoreness(String area) => setState(() {
+        if (!soreness.add(area)) soreness.remove(area);
+      });
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -243,7 +248,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
         ] else ...[
           const FieldTitle('Duration'),
           ChoiceGroup(
-              options: const [20, 30, 45, 60],
+              options: const [20, 30, 45, 60, 90],
               value: duration,
               onChanged: (v) => setState(() => duration = v)),
           const SizedBox(height: 22)
@@ -264,17 +269,25 @@ class _TrainingScreenState extends State<TrainingScreen> {
             'Back',
             'Legs'
           ])
-            FilterChip(
-                label: Text(area),
+            Semantics(
+                label: area,
+                button: true,
                 selected: soreness.contains(area),
-                onSelected: (v) => setState(() {
-                      if (v) {
-                        soreness.add(area);
-                      } else {
-                        soreness.remove(area);
-                      }
-                    }))
+                onTap: () => _toggleSoreness(area),
+                child: ExcludeSemantics(
+                    child: FilterChip(
+                        label: Text(area),
+                        selected: soreness.contains(area),
+                        onSelected: (_) => _toggleSoreness(area))))
         ]),
+        if (soreness.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const FieldTitle('How does it feel?'),
+          ChoiceGroup(
+              options: const ['Sore', 'Painful', 'Severe'],
+              value: painSeverity,
+              onChanged: (v) => setState(() => painSeverity = v)),
+        ],
         const SizedBox(height: 28),
         PrimaryButton('Save training', onPressed: () async {
           try {
@@ -285,7 +298,8 @@ class _TrainingScreenState extends State<TrainingScreen> {
                 intensity: intensity,
                 rounds: type == 'Sparring' ? rounds : 0,
                 contact: contact,
-                soreness: soreness.toList()));
+                soreness: soreness.toList(),
+                painSeverity: soreness.isEmpty ? 'None' : painSeverity));
           } catch (e) {
             widget.controller.showError(e);
           }

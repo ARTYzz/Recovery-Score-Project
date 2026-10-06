@@ -74,4 +74,129 @@ void main() {
     expect(result.domains['fuel']!.status, 'RESTRICTED');
     expect(result.limiter, 'fuel');
   });
+
+  test('long strength session with sore shoulder recommends resting that area',
+      () {
+    final athlete = AthleteData();
+    athlete.sessions.add(TrainingSession(
+        date: localDay(),
+        type: 'Strength',
+        duration: 90,
+        intensity: 'Moderate',
+        soreness: ['Shoulders']));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.domains['body']!.status, 'RESTRICTED');
+    expect(result.limiter, 'body');
+    expect(result.trainingGuidance['Strength']!.status, 'AVOID');
+    expect(result.trainingGuidance['Strength']!.title, contains('Rest'));
+    expect(result.trainingGuidance['Boxing / Technical']!.status, 'MODIFIED');
+    expect(result.avoid, contains('Strength for affected area'));
+    expect(result.allowed, isNot(contains('Strength')));
+  });
+
+  test('mild soreness after a short easy strength session modifies load', () {
+    final athlete = AthleteData();
+    athlete.sessions.add(TrainingSession(
+        date: localDay(),
+        type: 'Strength',
+        duration: 20,
+        intensity: 'Easy',
+        soreness: ['Shoulders']));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.domains['body']!.status, 'CAUTION');
+    expect(result.trainingGuidance['Strength']!.status, 'MODIFIED');
+    expect(
+        result.trainingGuidance['Conditioning']!.status, 'INSUFFICIENT_DATA');
+  });
+
+  test('painful shoulder after strength restricts affected loading', () {
+    final session = TrainingSession(
+        date: localDay(),
+        type: 'Strength',
+        duration: 30,
+        intensity: 'Moderate',
+        soreness: ['Shoulders'],
+        painSeverity: 'Painful');
+    expect(TrainingSession.fromJson(session.toJson()).painSeverity, 'Painful');
+    final athlete = AthleteData()..sessions.add(session);
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.trainingGuidance['Strength']!.status, 'AVOID');
+    expect(result.trainingGuidance['Boxing / Technical']!.status, 'MODIFIED');
+    expect(result.safety, isEmpty);
+  });
+
+  test('long hard conditioning limits intervals without restricting strength',
+      () {
+    final athlete = const DemoDataFactory().create();
+    athlete.sessions.add(TrainingSession(
+        date: athlete.currentDay,
+        type: 'Conditioning',
+        duration: 90,
+        intensity: 'Hard'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.trainingGuidance['Conditioning']!.status, 'MODIFIED');
+    expect(
+        result.trainingGuidance['Conditioning']!.reason, contains('interval'));
+    expect(result.avoid, contains('Hard conditioning'));
+    expect(result.trainingGuidance['Strength']!.status, isNot('AVOID'));
+  });
+
+  test('long hard technical boxing changes body and power guidance', () {
+    final athlete = const DemoDataFactory().create();
+    athlete.sessions.add(TrainingSession(
+        date: athlete.currentDay,
+        type: 'Boxing / Technical',
+        duration: 90,
+        intensity: 'Hard'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.domains['body']!.status, 'CAUTION');
+    expect(result.domains['power']!.status, 'CAUTION');
+    expect(result.trainingGuidance['Boxing / Technical']!.status, 'MODIFIED');
+    expect(result.trainingGuidance['Boxing / Technical']!.reason,
+        contains('long hard technical'));
+  });
+
+  test('body restriction becomes primary limiter over equally restricted sleep',
+      () {
+    final athlete = const DemoDataFactory().create();
+    athlete.sessions.add(TrainingSession(
+        date: athlete.currentDay,
+        type: 'Strength',
+        duration: 90,
+        intensity: 'Moderate',
+        soreness: ['Shoulders']));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.domains['sleep']!.status, 'RESTRICTED');
+    expect(result.domains['body']!.status, 'RESTRICTED');
+    expect(result.limiter, 'body');
+  });
+
+  test('severe pain safety overrides all four categories', () {
+    final athlete = const DemoDataFactory().create();
+    athlete.sessions.add(TrainingSession(
+        date: athlete.currentDay,
+        type: 'Strength',
+        duration: 20,
+        intensity: 'Easy',
+        soreness: ['Shoulders'],
+        painSeverity: 'Severe'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.safety.map((e) => e.code), contains('PHYSICAL'));
+    expect(result.trainingGuidance.values.every((e) => e.status == 'AVOID'),
+        isTrue);
+    expect(result.allowed, isEmpty);
+  });
+
+  test('old training sessions do not drive todays guidance', () {
+    final athlete = AthleteData();
+    athlete.sessions.add(TrainingSession(
+        date: localDay(DateTime.now().subtract(const Duration(days: 9))),
+        type: 'Strength',
+        duration: 90,
+        intensity: 'Hard',
+        soreness: ['Shoulders']));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.domains['body']!.status, 'INSUFFICIENT_DATA');
+    expect(result.trainingGuidance['Strength']!.status, 'INSUFFICIENT_DATA');
+  });
 }

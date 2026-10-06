@@ -30,6 +30,10 @@ The Dart code is organized by responsibility:
 - `lib/app/`: navigation and onboarding/check-in state controller.
 - `lib/ui/`: reusable cards, controls, mobile shell, and screens.
 
+### Training guidance in the prototype
+
+`RecoveryEngine` and `TrainingAdvisor` evaluate Sparring, Boxing / Technical, Conditioning, and Strength separately. Recent session duration, intensity, contact, body area, and soreness/pain severity change both the domain status and the advice shown for each type. The advisor uses the last two calendar days of training; repeated heavy head contact is checked over seven days. A long Strength session with shoulder soreness, for example, recommends resting the affected upper body and avoiding another session that loads it. Severe pain or concerning head symptoms go through the Safety Gate first. The 60-minute and other load thresholds are prototype decision rules, not validated clinical cutoffs or medical clearance.
+
 **Data migration:** Flutter uses a new local vault format and a separate Android application ID. Existing data in a previously installed Capacitor app is not automatically imported. Keep the old app installed until its data has been exported or manually recorded. The new app does not overwrite the old installation.
 
 The core loop works with local data. The first run offers profile setup and affirmative prototype consent, or synthetic demo data. Apple Health, Health Connect, and FightCamp connections are **mock adapters**, not platform permissions or official integrations. There is no backend account or cloud sync. The prototype must not be used as a medical decision tool.
