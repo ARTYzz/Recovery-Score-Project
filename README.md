@@ -1,19 +1,42 @@
 # Recovery Score Project
 
-## Mobile MVP prototype
+## Flutter mobile MVP
 
-The app has a Capacitor Android project in `android/`. Install dependencies with `pnpm install`, then run `pnpm dev` to preview the 390 × 844 interface or `pnpm android:sync` to rebuild Android assets. Building an APK requires Android Studio and an Android SDK.
+The active app is Flutter. It targets Android and can also run in a browser for demos. The browser preview keeps a centered 390-pixel mobile layout. The former Capacitor implementation is preserved in `legacy_capacitor/` for reference and is no longer the active application.
 
-The code is organized by responsibility:
+On this Windows machine, run from the project root:
 
-- `src/core.js`: personal baselines, fight camp clock, safety gate, six-domain assessment, training guidance, mock connector, and action feedback.
-- `src/vault.js`: passphrase-based AES-GCM encryption for local athlete data.
-- `src/app.js`: mobile screens, navigation, and interactions.
-- `src/style.css`: PDF-derived visual styles.
+```powershell
+.\.toolchains\flutter\bin\flutter.bat pub get
+.\.toolchains\flutter\bin\flutter.bat run -d chrome
+```
+
+If the local SDK is absent after cloning, [install Flutter](https://docs.flutter.dev/get-started/install) and use `flutter pub get` / `flutter run -d chrome`. Android builds also require an Android SDK. Run `flutter test` and `flutter build apk --debug` when Flutter is on `PATH`, or use the local SDK path shown above.
+
+### Four-minute core workflow demo
+
+1. Open the running app. On a fresh install choose **Try synthetic demo**. If a demo already exists, open **Settings → Restart with fresh demo data**. The demo contains labelled synthetic wearable, FightCamp, training, weight, and recovery history.
+2. On **Today**, open **Review training guidance**. Check the four training types, then tap **Log after training**. Choose a training type and save the session. Complete the short **Nutrition** check and return to Today.
+3. Reload the browser. The demo opens automatically, and Today still shows the saved session. Real athlete accounts still require their local passphrase after a reload.
+4. Open **One thing tonight**, tap **Start**, then **Complete action**. On Today, tap **Continue to next morning · Demo**. Save the automatically opened Morning Check-in.
+5. The app opens **Next Morning** to show the observed HRV, sleep, resting HR, mood, and domain status. Tap **See today’s recovery**. Reload once more to show that the observation remains stored. The app labels a single observation **Not Enough Data**, so it does not claim medical causation.
+
+Keep the browser open before class. The demo runs locally and does not require an internet connection after Flutter has built it.
+
+The Dart code is organized by responsibility:
+
+- `lib/domain/`: normalized athlete records, personal baselines, six-domain assessment, Safety Gate, training advice, feedback.
+- `lib/data/`: encrypted local vault and clearly labelled synthetic health/FightCamp sources.
+- `lib/app/`: navigation and onboarding/check-in state controller.
+- `lib/ui/`: reusable cards, controls, mobile shell, and screens.
+
+**Data migration:** Flutter uses a new local vault format and a separate Android application ID. Existing data in a previously installed Capacitor app is not automatically imported. Keep the old app installed until its data has been exported or manually recorded. The new app does not overwrite the old installation.
 
 The core loop works with local data. The first run offers profile setup and affirmative prototype consent, or synthetic demo data. Apple Health, Health Connect, and FightCamp connections are **mock adapters**, not platform permissions or official integrations. There is no backend account or cloud sync. The prototype must not be used as a medical decision tool.
 
 Power & Speed reads normalized FightCamp session records. After onboarding Start, the prototype automatically loads clearly labelled synthetic FightCamp history; consented existing profiles receive it on unlock. No FightCamp Connect, Sync, or Load button is needed, and no real FightCamp account or API is connected. There is no manual Punch Test or undocumented FightCamp API call. Older manual punch records may remain in a local vault but are not used in the assessment.
+
+Nutrition remains a quick Yes/No, protein, and carbohydrate check. The separate optional Food journal stores a compressed photo, a selected meal preset and serving-size estimate, user edits, and daily totals. It does **not** recognize food from a photo; the athlete confirms every estimate.
 
 Onboarding has three steps: athlete profile and Privacy Notice; optional prototype health-data source or Skip for now (with local health-data consent); then the fight countdown and 7-day baseline introduction. The official weigh-in weight is optional. Skipping a source leaves wearable metrics `Unavailable`. Start opens Morning Check-In automatically. Unlocking on a new local day also opens it; after saving, the athlete goes to Today and is not prompted again that day. "Try synthetic demo" creates a predefined athlete with camp, wearable, training, and today's check-in history and opens Today directly.
 
