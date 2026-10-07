@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:boxer_recovery/app/boxer_controller.dart';
 import 'package:boxer_recovery/data/athlete_vault.dart';
+import 'package:boxer_recovery/data/mock_sources.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
 
 void main() {
@@ -18,7 +19,7 @@ void main() {
         fightDate: localDay(DateTime.now().add(const Duration(days: 30))),
         passphrase: 'test-passphrase',
         privacyAccepted: true);
-    expect(app.route, 'baseline-intro');
+    expect(app.route, 'health-preview');
     expect(app.data!.healthAcceptedAt, isNull);
     expect(app.data!.connections['apple'], 'MOCK_CONNECTED');
     expect(app.data!.connections['android'], 'MOCK_CONNECTED');
@@ -28,6 +29,11 @@ void main() {
     expect(app.data!.latestWearable?.sleepMinutes, 437);
     expect(app.data!.latestWearable?.hrv, 66);
     expect(app.data!.latestWearable?.restingHr, 48);
+    app.lock();
+    await app.unlock('test-passphrase');
+    expect(app.route, 'health-preview');
+    await app.continueFromHealthPreview();
+    expect(app.route, 'baseline-intro');
     await app.start();
     expect(app.route, 'morning');
     await app.saveMorning(
@@ -56,6 +62,27 @@ void main() {
     await reopened.connectDemo('apple');
     expect(reopened.data!.connections['android'], 'DISCONNECTED');
     expect(reopened.data!.latestWearable?.mode, 'DEMO');
+  });
+
+  test('demo Sleep is synced for a new day and never duplicated on reopen', () {
+    final athlete = AthleteData(
+        mockOnly: true, demoAnchorDay: localDay(), onboardingStage: 'complete');
+    const sources = AutomaticDemoHealthSources();
+    sources.ensure(athlete);
+    final firstDay = athlete.currentDay;
+    expect(athlete.latestSleepSample?.sleepMinutes, 437);
+    athlete.demoDayOffset = 1;
+    sources.ensure(athlete);
+    expect(athlete.currentDay, isNot(firstDay));
+    expect(
+        athlete.wearables
+            .where((sample) =>
+                sample.date == athlete.currentDay &&
+                sample.sleepMinutes != null)
+            .length,
+        2);
+    sources.ensure(athlete);
+    expect(athlete.wearables.length, 4);
   });
 
   test('existing generic demo records migrate once and preserve source history',

@@ -42,7 +42,9 @@ class BoxerController extends ChangeNotifier {
     error = null;
     final current = data;
     if (current != null) {
-      if (current.onboardingStage == 'connect') {
+      if (current.onboardingStage == 'sources') {
+        route = 'health-preview';
+      } else if (current.onboardingStage == 'connect') {
         route = 'baseline-intro';
       } else if (current.onboardingStage == 'ready') {
         route = 'baseline-intro';
@@ -82,11 +84,11 @@ class BoxerController extends ChangeNotifier {
             fightDate: fightDate,
             officialWeighInWeight: officialWeight),
         privacyAcceptedAt: DateTime.now().toIso8601String(),
-        onboardingStage: 'ready');
+        onboardingStage: 'sources');
     const AutomaticDemoHealthSources().ensure(athlete);
     await vault.create(passphrase, athlete);
     data = athlete;
-    navigate('baseline-intro');
+    navigate('health-preview');
   }
 
   Future<void> tryDemo() async {
@@ -119,6 +121,14 @@ class BoxerController extends ChangeNotifier {
     const MockFightCampSource().ensureDemoData(athlete);
     await vault.save();
     navigate('morning');
+  }
+
+  Future<void> continueFromHealthPreview() async {
+    final athlete = data!;
+    if (athlete.onboardingStage != 'sources') return;
+    athlete.onboardingStage = 'ready';
+    await vault.save();
+    navigate('baseline-intro');
   }
 
   Future<void> _persistAndGo(String destination) async {

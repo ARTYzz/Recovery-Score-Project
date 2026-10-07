@@ -14,6 +14,9 @@ class TodayScreen extends StatelessWidget {
     final result = controller.assessment!;
     final overview = RecoveryOverview.fromAssessment(result);
     final wearable = data.latestWearable;
+    final sleep = data.latestSleepSample;
+    final hrv = data.latestMetricSample((sample) => sample.hrv);
+    final restingHr = data.latestMetricSample((sample) => sample.restingHr);
     final actionDoneToday =
         data.actions.any((action) => action.date == data.currentDay);
     final observedActions =
@@ -105,16 +108,45 @@ class TodayScreen extends StatelessWidget {
                 ])
               ]))),
       const SizedBox(height: 8),
+      AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(children: [
+            const Icon(Icons.bedtime_outlined, color: AppColors.teal),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  const Text('Last sleep',
+                      style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                  Text(
+                      sleep?.sleepMinutes == null
+                          ? 'Unavailable'
+                          : '${sleep!.sleepMinutes! ~/ 60} h ${sleep.sleepMinutes! % 60} min',
+                      style: const TextStyle(
+                          fontSize: 19, fontWeight: FontWeight.w800))
+                ])),
+            if (sleep?.sleepMinutes != null)
+              Text(
+                  result.domains['sleep']!.status == 'INSUFFICIENT_DATA'
+                      ? 'Learning baseline'
+                      : 'Auto loaded',
+                  style: const TextStyle(fontSize: 10, color: AppColors.muted))
+          ])),
+      const SizedBox(height: 8),
       Row(children: [
         Expanded(
             child: MetricTile(
-                'Last HRV', wearable?.hrv?.round().toString() ?? 'Unavailable',
-                unit: wearable?.hrv == null ? '' : ' ms')),
+                'Last HRV', hrv?.hrv?.round().toString() ?? 'Unavailable',
+                unit: hrv?.hrv == null ? '' : ' ms')),
         const SizedBox(width: 8),
         Expanded(
             child: MetricTile('Last HR',
-                wearable?.restingHr?.round().toString() ?? 'Unavailable',
-                unit: wearable?.restingHr == null ? '' : ' bpm'))
+                restingHr?.restingHr?.round().toString() ?? 'Unavailable',
+                unit: restingHr?.restingHr == null ? '' : ' bpm'))
       ]),
       const SizedBox(height: 10),
       AppCard(

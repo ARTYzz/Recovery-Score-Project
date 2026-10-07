@@ -17,6 +17,23 @@ void main() {
     expect(assessment.baselines['hrv']!.value, isNull);
   });
 
+  test('Sleep remains available when the latest source reports only HRV', () {
+    final athlete = AthleteData();
+    athlete.wearables.add(WearableSample(
+        date: localDay(),
+        source: 'Apple Health demo',
+        mode: 'DEMO',
+        sleepMinutes: 437));
+    athlete.wearables.add(WearableSample(
+        date: localDay(),
+        source: 'Health Connect demo',
+        mode: 'DEMO',
+        hrv: 66));
+    expect(athlete.latestWearable?.sleepMinutes, isNull);
+    expect(athlete.latestSleepSample?.sleepMinutes, 437);
+    expect(RecoveryEngine().assess(athlete).baselines['sleep']!.value, 437);
+  });
+
   test('head symptoms override training even with baseline data', () {
     final athlete = const DemoDataFactory().create();
     athlete.saveMorning(MorningCheckIn(

@@ -346,6 +346,15 @@ class AthleteData {
       !checkins.any((e) => e.date == currentDay);
   WearableSample? get latestWearable =>
       wearables.isEmpty ? null : wearables.last;
+  WearableSample? latestMetricSample(num? Function(WearableSample) read) {
+    for (final sample in wearables.reversed) {
+      if (read(sample) != null) return sample;
+    }
+    return null;
+  }
+
+  WearableSample? get latestSleepSample =>
+      latestMetricSample((sample) => sample.sleepMinutes);
   MorningCheckIn? get latestCheckIn => checkins.isEmpty ? null : checkins.last;
   TrainingSession? get latestTraining =>
       sessions.isEmpty ? null : sessions.last;

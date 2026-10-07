@@ -69,16 +69,24 @@ class AutomaticDemoHealthSources {
       for (final sample in generic) {
         source.sync(data, _copy(sample, source.sourceName));
       }
-      if (!data.wearables.any((sample) => sample.source == source.sourceName)) {
+      // A demo source produces a fresh normalized daily sample on app open.
+      // Existing samples remain unchanged, including imported legacy history.
+      if (!data.wearables.any((sample) =>
+          sample.source == source.sourceName &&
+          sample.date == data.currentDay)) {
+        final previous = data.wearables
+            .where((sample) => sample.source == source.sourceName)
+            .toList();
+        final day = parsedDay(data.currentDay)?.day ?? 1;
         source.sync(
             data,
             WearableSample(
                 date: data.currentDay,
                 source: source.sourceName,
                 mode: 'DEMO',
-                sleepMinutes: 437,
-                hrv: 66,
-                restingHr: 48,
+                sleepMinutes: previous.isEmpty ? 437 : 425 + (day % 3) * 12,
+                hrv: previous.isEmpty ? 66 : (64 + (day % 4) * 2).toDouble(),
+                restingHr: previous.isEmpty ? 48 : (46 + (day % 3)).toDouble(),
                 heartRate: 74,
                 workoutMinutes: 52));
       }

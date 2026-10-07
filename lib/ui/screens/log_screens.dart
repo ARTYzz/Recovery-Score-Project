@@ -80,7 +80,10 @@ class _MorningScreenState extends State<MorningScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final wear = widget.controller.data?.latestWearable;
+    final data = widget.controller.data;
+    final sleep = data?.latestSleepSample;
+    final hrv = data?.latestMetricSample((sample) => sample.hrv);
+    final restingHr = data?.latestMetricSample((sample) => sample.restingHr);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const PageHeader(title: 'Morning Check-in', subtitle: 'About 20 seconds'),
       const SizedBox(height: 22),
@@ -88,18 +91,18 @@ class _MorningScreenState extends State<MorningScreen> {
       AppCard(
           child: Column(children: [
         StatusPill('Sleep',
-            wear?.sleepMinutes == null ? 'INSUFFICIENT_DATA' : 'READY'),
+            sleep?.sleepMinutes == null ? 'INSUFFICIENT_DATA' : 'READY'),
         const SizedBox(height: 8),
         Text(
-            wear?.sleepMinutes == null
+            sleep?.sleepMinutes == null
                 ? 'Unavailable'
-                : '${(wear!.sleepMinutes! / 60).toStringAsFixed(1)} h',
+                : '${sleep!.sleepMinutes! ~/ 60} h ${sleep.sleepMinutes! % 60} min',
             style: const TextStyle(fontWeight: FontWeight.w800)),
         const Divider(),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('HRV: ${wear?.hrv?.round().toString() ?? 'Unavailable'}'),
+          Text('HRV: ${hrv?.hrv?.round().toString() ?? 'Unavailable'}'),
           Text(
-              'Resting HR: ${wear?.restingHr?.round().toString() ?? 'Unavailable'}')
+              'Resting HR: ${restingHr?.restingHr?.round().toString() ?? 'Unavailable'}')
         ])
       ])),
       const SizedBox(height: 24),

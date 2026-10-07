@@ -16,10 +16,12 @@ class AppScreens extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final route = controller.route;
-    final onboarding = ['setup', 'unlock', 'baseline-intro'].contains(route);
+    final onboarding =
+        ['setup', 'unlock', 'health-preview', 'baseline-intro'].contains(route);
     Widget content = switch (route) {
       'setup' => SetupScreen(controller),
       'unlock' => UnlockScreen(controller),
+      'health-preview' => HealthPreviewScreen(controller),
       'baseline-intro' => BaselineIntroScreen(controller),
       'morning' => MorningScreen(controller),
       'today' => TodayScreen(controller),

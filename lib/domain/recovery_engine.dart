@@ -80,7 +80,7 @@ class PersonalBaseline {
   final AthleteData data;
 
   Baseline wearable(double? Function(WearableSample) read) {
-    final source = data.latestWearable?.source;
+    final source = data.latestMetricSample(read)?.source;
     final daily = <String, double>{};
     for (final sample in data.wearables) {
       if (source != null && sample.source != source) continue;
@@ -477,7 +477,9 @@ class RecoveryEngine {
     final rhr = baseline.wearable((e) => e.restingHr);
     final sleep = baseline.wearable((e) => e.sleepMinutes?.toDouble());
     final punchBaseline = baseline.punch();
-    final wear = data.latestWearable;
+    final sleepWear = data.latestSleepSample;
+    final hrvWear = data.latestMetricSample((sample) => sample.hrv);
+    final rhrWear = data.latestMetricSample((sample) => sample.restingHr);
     final check =
         data.latestCheckIn?.date == data.currentDay ? data.latestCheckIn : null;
     final nutrition = data.latestNutrition?.date == data.currentDay
@@ -494,21 +496,21 @@ class RecoveryEngine {
         key: const DomainResult('INSUFFICIENT_DATA', <String>[])
     };
 
-    if (wear?.sleepMinutes != null ||
-        wear?.hrv != null ||
-        wear?.restingHr != null) {
+    if (sleepWear != null || hrvWear != null || rhrWear != null) {
       final reasons = <String>[];
       if (sleep.ready &&
-          wear?.sleepMinutes != null &&
-          wear!.sleepMinutes! < sleep.value! * 0.85) {
+          sleepWear?.sleepMinutes != null &&
+          sleepWear!.sleepMinutes! < sleep.value! * 0.85) {
         reasons.add('Sleep below your baseline');
       }
-      if (hrv.ready && wear?.hrv != null && wear!.hrv! < hrv.value! * 0.85) {
+      if (hrv.ready &&
+          hrvWear?.hrv != null &&
+          hrvWear!.hrv! < hrv.value! * 0.85) {
         reasons.add('HRV below your baseline');
       }
       if (rhr.ready &&
-          wear?.restingHr != null &&
-          wear!.restingHr! > rhr.value! * 1.1) {
+          rhrWear?.restingHr != null &&
+          rhrWear!.restingHr! > rhr.value! * 1.1) {
         reasons.add('Resting HR above your baseline');
       }
       if (recent
