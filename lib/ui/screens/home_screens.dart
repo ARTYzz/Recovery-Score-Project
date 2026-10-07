@@ -191,14 +191,29 @@ class TodayScreen extends StatelessWidget {
       const SizedBox(height: 10),
       GridView.count(
           crossAxisCount: 3,
-          childAspectRatio: 1.7,
+          childAspectRatio: 1.4,
           crossAxisSpacing: 6,
           mainAxisSpacing: 6,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
             for (final key in domainKeys)
-              _DomainMiniCard(domainLabels[key]!, result.domains[key]!.status)
+              _DomainMiniCard(domainLabels[key]!, result.domains[key]!.status,
+                  detail: key == 'sleep' &&
+                          result.domains[key]!.status == 'INSUFFICIENT_DATA' &&
+                          (sleep?.sleepMinutes != null || hrv?.hrv != null)
+                      ? [
+                          if (sleep?.sleepMinutes != null)
+                            '${sleep!.sleepMinutes! ~/ 60}h ${sleep.sleepMinutes! % 60}m',
+                          if (hrv?.hrv != null) '${hrv!.hrv!.round()}ms'
+                        ].join(' · ')
+                      : null,
+                  baselineDays: key == 'sleep'
+                      ? [
+                          result.baselines['sleep']!.count,
+                          result.baselines['hrv']!.count
+                        ].reduce((a, b) => a > b ? a : b)
+                      : null)
           ]),
       const SizedBox(height: 10),
       InkWell(
@@ -404,18 +419,24 @@ class FeedbackScreen extends StatelessWidget {
 }
 
 class _DomainMiniCard extends StatelessWidget {
-  const _DomainMiniCard(this.label, this.status);
+  const _DomainMiniCard(this.label, this.status,
+      {this.detail, this.baselineDays});
   final String label;
   final String status;
+  final String? detail;
+  final int? baselineDays;
   @override
   Widget build(BuildContext context) {
+    final learning = status == 'INSUFFICIENT_DATA' && detail != null;
     final color = status == 'READY'
         ? AppColors.lime
         : status == 'CAUTION'
             ? AppColors.amber
             : status == 'RESTRICTED'
                 ? AppColors.red
-                : AppColors.muted;
+                : learning
+                    ? AppColors.teal
+                    : AppColors.muted;
     return AppCard(
         padding: const EdgeInsets.all(8),
         child: Column(
@@ -441,6 +462,18 @@ class _DomainMiniCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       fontSize: 10, fontWeight: FontWeight.w800)),
+              if (learning) ...[
+                Text(detail!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w700)),
+                Text('Baseline ${baselineDays ?? 0}/7 days',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 9, color: AppColors.muted)),
+              ],
               ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
@@ -450,7 +483,9 @@ class _DomainMiniCard extends StatelessWidget {
                               ? .55
                               : status == 'RESTRICTED'
                                   ? .2
-                                  : 0,
+                                  : learning
+                                      ? ((baselineDays ?? 0) / 7).clamp(0, 1)
+                                      : 0,
                       minHeight: 4,
                       backgroundColor: AppColors.line,
                       color: color)),
