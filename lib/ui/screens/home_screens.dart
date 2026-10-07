@@ -84,7 +84,7 @@ class TodayScreen extends StatelessWidget {
                 SizedBox.expand(
                     child: CircularProgressIndicator(
                         value: overview.score == null
-                            ? result.assessedCount / 6
+                            ? result.observedCount / 6
                             : overview.score! / 100,
                         strokeWidth: 9,
                         color: overview.tone == 'safety'
@@ -95,7 +95,7 @@ class TodayScreen extends StatelessWidget {
                         backgroundColor: AppColors.line)),
                 Column(mainAxisSize: MainAxisSize.min, children: [
                   Text(
-                      overview.score?.toString() ?? '${result.assessedCount}/6',
+                      overview.score?.toString() ?? '${result.observedCount}/6',
                       style: const TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
@@ -107,6 +107,13 @@ class TodayScreen extends StatelessWidget {
                           fontSize: 12))
                 ])
               ]))),
+      if (overview.score == null) ...[
+        const SizedBox(height: 4),
+        Center(
+            child: Text(
+                '${result.observedCount} domains have data · ${result.assessedCount} assessed',
+                style: const TextStyle(fontSize: 10, color: AppColors.muted))),
+      ],
       const SizedBox(height: 8),
       AppCard(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -191,7 +198,7 @@ class TodayScreen extends StatelessWidget {
       const SizedBox(height: 10),
       GridView.count(
           crossAxisCount: 3,
-          childAspectRatio: 1.4,
+          mainAxisExtent: 98,
           crossAxisSpacing: 6,
           mainAxisSpacing: 6,
           shrinkWrap: true,
@@ -205,8 +212,9 @@ class TodayScreen extends StatelessWidget {
                       ? [
                           if (sleep?.sleepMinutes != null)
                             '${sleep!.sleepMinutes! ~/ 60}h ${sleep.sleepMinutes! % 60}m',
-                          if (hrv?.hrv != null) '${hrv!.hrv!.round()}ms'
-                        ].join(' · ')
+                          if (sleep?.sleepMinutes == null && hrv?.hrv != null)
+                            'HRV ${hrv!.hrv!.round()}ms'
+                        ].join()
                       : null,
                   baselineDays: key == 'sleep'
                       ? [
@@ -468,7 +476,7 @@ class _DomainMiniCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 10, fontWeight: FontWeight.w700)),
-                Text('Baseline ${baselineDays ?? 0}/7 days',
+                Text('Baseline ${baselineDays ?? 0}/7',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style:

@@ -15,6 +15,7 @@ void main() {
     expect(athlete.latestWearable, isNull);
     expect(assessment.domains['sleep']!.status, 'INSUFFICIENT_DATA');
     expect(assessment.baselines['hrv']!.value, isNull);
+    expect(assessment.observedCount, assessment.assessedCount);
   });
 
   test('Sleep remains available when the latest source reports only HRV', () {
@@ -31,7 +32,11 @@ void main() {
         hrv: 66));
     expect(athlete.latestWearable?.sleepMinutes, isNull);
     expect(athlete.latestSleepSample?.sleepMinutes, 437);
-    expect(RecoveryEngine().assess(athlete).baselines['sleep']!.value, 437);
+    final assessment = RecoveryEngine().assess(athlete);
+    expect(assessment.baselines['sleep']!.value, 437);
+    expect(assessment.domains['sleep']!.status, 'INSUFFICIENT_DATA');
+    expect(assessment.observedCount, assessment.assessedCount + 1);
+    expect(RecoveryOverview.fromAssessment(assessment).score, isNull);
   });
 
   test('head symptoms override training even with baseline data', () {

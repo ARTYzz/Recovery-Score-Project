@@ -459,6 +459,16 @@ class Assessment {
 
   int get assessedCount =>
       domains.values.where((e) => e.status != 'INSUFFICIENT_DATA').length;
+  // A raw wearable reading counts as present on the dashboard, even while
+  // Sleep & Heart still needs a personal baseline for training guidance.
+  int get observedCount =>
+      assessedCount +
+      (domains['sleep']?.status == 'INSUFFICIENT_DATA' &&
+              ((baselines['sleep']?.count ?? 0) > 0 ||
+                  (baselines['hrv']?.count ?? 0) > 0 ||
+                  (baselines['restingHr']?.count ?? 0) > 0)
+          ? 1
+          : 0);
   Map<String, dynamic> snapshot(String day) => {
         'date': day,
         'limiter': limiter,
