@@ -13,6 +13,12 @@ class TodayScreen extends StatelessWidget {
     final data = controller.data!;
     final result = controller.assessment!;
     final overview = RecoveryOverview.fromAssessment(result);
+    final sleepBaseline = result.baselines['sleep']!;
+    final hrvBaseline = result.baselines['hrv']!;
+    final baselineReady = sleepBaseline.ready || hrvBaseline.ready;
+    final baselineDays = sleepBaseline.count > hrvBaseline.count
+        ? sleepBaseline.count
+        : hrvBaseline.count;
     final wearable = data.latestWearable;
     final sleep = data.latestSleepSample;
     final hrv = data.latestMetricSample((sample) => sample.hrv);
@@ -112,6 +118,13 @@ class TodayScreen extends StatelessWidget {
         Center(
             child: Text(
                 '${result.observedCount} domains have data · ${result.assessedCount} assessed',
+                style: const TextStyle(fontSize: 10, color: AppColors.muted))),
+        const SizedBox(height: 2),
+        Center(
+            child: Text(
+                baselineReady
+                    ? 'Recovery score pending · more domain data needed'
+                    : 'Recovery score pending · baseline $baselineDays/7 days',
                 style: const TextStyle(fontSize: 10, color: AppColors.muted))),
       ],
       const SizedBox(height: 8),
