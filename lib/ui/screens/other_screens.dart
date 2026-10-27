@@ -298,7 +298,9 @@ class SettingsScreen extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.watch_outlined),
             title: const Text('Connected sources'),
-            subtitle: const Text('Demo connections and permissions'),
+            subtitle: Text(data.connections['apple'] == 'CONNECTED'
+                ? 'Huawei via Apple Health · live data'
+                : 'Health data sources and permissions'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => controller.navigate('connections')),
         SwitchListTile(
@@ -311,7 +313,7 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('Privacy & consent'),
             subtitle: Text(
-                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health sources: Demo only'))
+                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health: ${data.connections['apple'] == 'CONNECTED' ? 'Apple Health live' : 'Demo or unavailable'}'))
       ])),
       const SizedBox(height: 15),
       if (data.mockOnly) ...[
@@ -385,11 +387,43 @@ class ConnectionsScreen extends StatelessWidget {
           title: 'Connected Sources',
           onBack: () => controller.navigate('settings')),
       const SizedBox(height: 12),
-      const Text(
-          'Apple Health and Health Connect demo data load automatically. No live wearable account or platform permission is connected.',
-          style: TextStyle(color: AppColors.muted)),
+      Text(
+          controller.huaweiHealth.supported
+              ? 'Huawei Health can share records with Apple Health. Connect here to read Huawei sleep, HRV, resting HR and workout data on this iPhone.'
+              : 'On this device Apple Health and Health Connect are demo sources. Live Huawei reading requires the iPhone app.',
+          style: const TextStyle(color: AppColors.muted)),
       const SizedBox(height: 18),
-      for (final kind in ['apple', 'android', 'fightcamp']) ...[
+      if (controller.huaweiHealth.supported) ...[
+        AppCard(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Huawei via Apple Health',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+          const SizedBox(height: 6),
+          Text(
+              data.connections['apple'] == 'CONNECTED'
+                  ? 'Live · ${data.wearables.where((e) => e.mode == 'LIVE').length} day(s) imported. Missing metrics stay Unavailable.'
+                  : 'Not connected · Apple Health permission and Huawei records required.',
+              style: const TextStyle(color: AppColors.muted)),
+          const SizedBox(height: 8),
+          if (data.connections['apple'] == 'CONNECTED') ...[
+            TextButton(
+                onPressed: controller.busy ? null : controller.syncHuaweiHealth,
+                child: const Text('Sync now')),
+            TextButton(
+                onPressed:
+                    controller.busy ? null : controller.disconnectHuaweiHealth,
+                child: const Text('Disconnect and clear imported data')),
+          ] else
+            TextButton(
+                onPressed:
+                    controller.busy ? null : controller.connectHuaweiHealth,
+                child: const Text('Connect Huawei data')),
+        ])),
+        const SizedBox(height: 10),
+      ],
+      for (final kind in ['apple', 'android', 'fightcamp'].where((kind) =>
+          !(kind == 'apple' && data.connections['apple'] == 'CONNECTED'))) ...[
         AppCard(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../data/athlete_vault.dart';
+import '../data/huawei_apple_health_source.dart';
 import '../data/mock_sources.dart';
 import '../domain/athlete_data.dart';
 import '../domain/recovery_engine.dart';
@@ -13,10 +14,12 @@ class BoxerController extends ChangeNotifier {
   final AthleteVault vault;
   final RecoveryEngine engine = RecoveryEngine();
   final FeedbackService feedback = FeedbackService();
+  final HuaweiAppleHealthSource huaweiHealth = HuaweiAppleHealthSource();
   AthleteData? data;
   String route = 'setup';
   String? error;
   bool busy = true;
+  bool _syncingHuawei = false;
 
   Assessment? get assessment => data == null ? null : engine.assess(data!);
 
@@ -61,6 +64,7 @@ class BoxerController extends ChangeNotifier {
 
   void refreshDailyGate() {
     if (data?.morningDue == true) navigate('morning');
+    if (data?.connections['apple'] == 'CONNECTED') syncHuaweiHealth();
   }
 
   Future<void> createProfile(
@@ -107,6 +111,9 @@ class BoxerController extends ChangeNotifier {
       data!.onboardingStage = 'ready';
     }
     const AutomaticDemoHealthSources().ensure(data!);
+    if (data!.connections['apple'] == 'CONNECTED') {
+      await syncHuaweiHealth();
+    }
     await vault.save();
     if (data!.healthAcceptedAt != null) {
       const MockFightCampSource().ensureDemoData(data!);
@@ -219,6 +226,72 @@ class BoxerController extends ChangeNotifier {
 
   Future<void> connectDemo(String kind) async {
     const AutomaticDemoHealthSources().restore(data!, kind);
+    await _persistAndGo('connections');
+  }
+
+  Future<void> connectHuaweiHealth() async {
+    if (busy) return;
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      final samples = await huaweiHealth.connect();
+      if (samples.isEmpty) {
+        throw const FormatException(
+            'No Huawei records were readable in Apple Health. Check Apple Health data sources and Boxer Recovery read permissions on your iPhone.');
+      }
+      final athlete = data!;
+      athlete.healthAcceptedAt = DateTime.now().toIso8601String();
+      athlete.connections['apple'] = 'CONNECTED';
+      athlete.connections['android'] = 'DISCONNECTED';
+      athlete.wearables.removeWhere((sample) =>
+          sample.mode == 'DEMO' ||
+          sample.source == HuaweiAppleHealthSource.sourceName);
+      athlete.wearables.addAll(samples);
+      athlete.wearables.sort((a, b) => a.date.compareTo(b.date));
+      await vault.save();
+    } catch (e) {
+      showError(e);
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> syncHuaweiHealth() async {
+    if (_syncingHuawei || data?.connections['apple'] != 'CONNECTED') return;
+    _syncingHuawei = true;
+    busy = true;
+    notifyListeners();
+    try {
+      final samples = await huaweiHealth.sync();
+      final athlete = data!;
+      if (samples.isEmpty) {
+        athlete.connections['apple'] = 'DISCONNECTED';
+        athlete.healthAcceptedAt = null;
+        error =
+            'No Huawei records are readable now. Check Apple Health read access.';
+      }
+      athlete.wearables.removeWhere(
+          (sample) => sample.source == HuaweiAppleHealthSource.sourceName);
+      athlete.wearables.addAll(samples);
+      athlete.wearables.sort((a, b) => a.date.compareTo(b.date));
+      await vault.save();
+    } catch (e) {
+      showError(e);
+    } finally {
+      _syncingHuawei = false;
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> disconnectHuaweiHealth() async {
+    final athlete = data!;
+    athlete.connections['apple'] = 'DISCONNECTED';
+    athlete.healthAcceptedAt = null;
+    athlete.wearables.removeWhere(
+        (sample) => sample.source == HuaweiAppleHealthSource.sourceName);
     await _persistAndGo('connections');
   }
 
