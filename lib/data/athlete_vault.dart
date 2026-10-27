@@ -41,8 +41,7 @@ class AthleteVault {
     _key = await _derive(passphrase, _salt!);
     data = athlete;
     await save();
-    await (await SharedPreferences.getInstance())
-        .setBool(demoKey, athlete.mockOnly);
+    await (await SharedPreferences.getInstance()).remove(demoKey);
   }
 
   Future<AthleteData> unlock(String passphrase) async {

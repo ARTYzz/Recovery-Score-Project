@@ -2,54 +2,43 @@
 
 ## Flutter mobile MVP
 
-The active app is Flutter. It targets Android and iOS and can also run in a browser for demos. The browser preview keeps a centered 390-pixel mobile layout. The former Capacitor implementation is preserved in `legacy_capacitor/` for reference and is no longer the active application.
+The active app is Flutter for iOS and Android, with a browser preview for UI and manual workflows. The former Capacitor application is in `legacy_capacitor/` for reference.
 
-On this Windows machine, run from the project root:
+Wearable data is **real Apple Health data on iPhone**. The app requests read access and imports only records with Huawei provenance from the last 14 days. Sleep, HRV (Apple Health SDNN), resting heart rate, heart rate, and workout duration stay `Unavailable` until matching records can be read. A connected status confirms at least one Huawei record, not every metric. The app never creates synthetic wearable values. Health Connect is not integrated. FightCamp punch history is the **only runtime mock source** and is always labelled as such.
+
+### Run and test
+
+On a Mac with Xcode and a connected iPhone, run `flutter pub get`, open `ios/Runner.xcworkspace` to select a signing team, and run `flutter run -d DEVICE_ID`. Create a real athlete profile, grant Apple Health read access during onboarding (or later in Settings → Connected Sources), complete the morning check-in, then view Today. The app reads again on unlock, when returning to the app, or when **Sync now** is tapped. It does not currently receive background HealthKit updates. Revoke platform read permission in the iPhone Health app; Disconnect in Boxer Recovery clears imported local records.
+
+On Windows, run from the project root:
 
 ```powershell
 .\.toolchains\flutter\bin\flutter.bat pub get
 .\.toolchains\flutter\bin\flutter.bat run -d chrome
 ```
 
-If the local SDK is absent after cloning, [install Flutter](https://docs.flutter.dev/get-started/install) and use `flutter pub get` / `flutter run -d chrome`. Android builds also require an Android SDK. Run `flutter test` and `flutter build apk --debug` when Flutter is on `PATH`, or use the local SDK path shown above.
+The browser can exercise profile, manual check-ins, training logs, Nutrition, Recovery Action, and FightCamp mock, but cannot access Apple Health. Wearable metrics remain `Unavailable` there. Run `flutter test` and `flutter analyze` to verify changes.
 
-### Four-minute core workflow demo
-
-1. Open the running app. On a fresh install choose **Try synthetic demo**. If a demo already exists, open **Settings → Restart with fresh demo data**. The demo contains labelled synthetic wearable, FightCamp, training, weight, and recovery history.
-2. On **Today**, open **Review training guidance**. Check the four training types, then tap **Log after training**. Choose a training type and save the session. Complete the short **Nutrition** check and return to Today.
-3. Reload the browser. The demo opens automatically, and Today still shows the saved session. Real athlete accounts still require their local passphrase after a reload.
-4. Open **One thing tonight**, tap **Start**, then **Complete action**. On Today, tap **Continue to next morning · Demo**. Save the automatically opened Morning Check-in.
-5. The app opens **Next Morning** to show the observed HRV, sleep, resting HR, mood, and domain status. Tap **See today’s recovery**. Reload once more to show that the observation remains stored. The app labels a single observation **Not Enough Data**, so it does not claim medical causation.
-
-Keep the browser open before class. The demo runs locally and does not require an internet connection after Flutter has built it.
+Existing real athlete accounts keep manually entered records and live HealthKit samples. On the first unlock after this update, old synthetic wearable samples and evaluations derived from them are removed; real manual records remain. Legacy full-demo accounts are retired and show the real profile setup screen. Creating a profile replaces that old demo vault.
 
 The Dart code is organized by responsibility:
 
-- `lib/domain/`: normalized athlete records, personal baselines, six-domain assessment, Safety Gate, training advice, feedback.
-- `lib/data/`: encrypted local vault and clearly labelled synthetic health/FightCamp sources.
-- `lib/app/`: navigation and onboarding/check-in state controller.
-- `lib/ui/`: reusable cards, controls, mobile shell, and screens.
+- `lib/domain/`: athlete records, personal baselines, six-domain assessment, Safety Gate, training advice, feedback.
+- `lib/data/`: encrypted local vault, Apple Health reader, and labelled FightCamp mock source.
+- `lib/app/`: navigation, onboarding, synchronization, and check-in state controller.
+- `lib/ui/`: reusable mobile components and screens.
 
 ### Training guidance in the prototype
 
-`RecoveryEngine` and `TrainingAdvisor` evaluate Sparring, Boxing / Technical, Conditioning, and Strength separately. Recent session duration, intensity, contact, body area, and soreness/pain severity change both the domain status and the advice shown for each type. The advisor uses the last two calendar days of training; repeated heavy head contact is checked over seven days. A long Strength session with shoulder soreness, for example, recommends resting the affected upper body and avoiding another session that loads it. Severe pain or concerning head symptoms go through the Safety Gate first. The 60-minute and other load thresholds are prototype decision rules, not validated clinical cutoffs or medical clearance.
+`RecoveryEngine` and `TrainingAdvisor` evaluate Sparring, Boxing / Technical, Conditioning, and Strength separately. Recent session duration, intensity, contact, body area, and soreness/pain severity change both domain status and advice. Severe pain or concerning head symptoms go through the Safety Gate first. Decision thresholds are prototype rules, not medical clearance.
 
-**Data migration:** Flutter uses a new local vault format and a separate Android application ID. Existing data in a previously installed Capacitor app is not automatically imported. Keep the old app installed until its data has been exported or manually recorded. The new app does not overwrite the old installation.
+Power & Speed reads normalized FightCamp session records. After onboarding, the app loads labelled synthetic FightCamp history. No official FightCamp account or undocumented API is connected.
 
-The core loop works with local data. The first run offers profile setup and Privacy Notice acceptance, or synthetic demo data. Apple Health can read Huawei-origin records on iPhone after explicit permission; Health Connect and FightCamp remain **mock adapters**. There is no backend account or cloud sync. The prototype must not be used as a medical decision tool.
-
-Power & Speed reads normalized FightCamp session records. After onboarding Start, the prototype automatically loads clearly labelled synthetic FightCamp history; consented existing profiles receive it on unlock. No FightCamp Connect, Sync, or Load button is needed, and no real FightCamp account or API is connected. There is no manual Punch Test or undocumented FightCamp API call. Older manual punch records may remain in a local vault but are not used in the assessment.
-
-Nutrition remains a quick Yes/No, protein, and carbohydrate check. The separate optional Food journal stores a compressed photo, a selected meal preset and serving-size estimate, user edits, and daily totals. It does **not** recognize food from a photo; the athlete confirms every estimate.
-
-Onboarding has three steps: athlete profile and Privacy Notice; a read-only Health Data preview showing which demo sources are ready and how a full mobile app would connect a smartwatch and smart scale; then the fight countdown and 7-day baseline introduction. The official weigh-in weight is optional. The Apple Health and Health Connect **demo adapters** are populated automatically with normalized synthetic Sleep, HRV, and Resting HR records, including a fresh sample on each new day when the app opens. Sleep is displayed on Today and Morning Check-in even while the personal Sleep & Heart baseline is still learning. Existing generic demo samples are migrated to these adapters on unlock without losing baseline history. Both sources are labelled Demo in Settings and can be disconnected or restored independently. Demo records do not imply a live connection. On iPhone, live Huawei data requires explicit Apple Health read permission; no real Health Connect, smart scale, or FightCamp connection is implied. Start opens Morning Check-In automatically. Unlocking on a new local day also opens it; after saving, the athlete goes to Today and is not prompted again that day. "Try synthetic demo" creates a predefined athlete with camp, wearable, training, and today's check-in history and opens Today directly.
+Nutrition remains a quick Yes/No, protein, and carbohydrate check. The optional Food journal stores a compressed photo and user-confirmed meal estimate. It does not recognize food from a photo.
 
 ### Huawei watch through Apple Health on iPhone
 
-The iOS runner can read records along this path: **HUAWEI WATCH FIT 5 → HUAWEI Health: Global → Apple Health → Boxer Recovery**. In **Settings → Connected Sources**, tap **Connect Huawei data** on the iPhone and approve read access. The app imports only Apple Health samples whose source name or ID contains `huawei`. It reads sleep, HRV (Apple Health SDNN), resting heart rate, heart rate, and workouts into the existing nullable wearable model. A missing value remains **Unavailable**. The live status appears only after matching records were read. Health Connect and FightCamp remain demo sources.
-
-On a Mac with Xcode installed, run `flutter pub get`, choose an iPhone and signing team for Runner in Xcode, then run `flutter run -d <iphone-device-id>`. Use **Sync now** after new watch data arrives in Apple Health. **Disconnect and clear imported data** removes local Huawei records. Revoke iOS read permission separately in the iPhone Health app if desired. The iOS build and real HealthKit read require a Mac, Xcode, and a physical iPhone; the Windows browser preview remains a synthetic demo.
-
+The live path is **HUAWEI WATCH FIT 5 → HUAWEI Health: Global → Apple Health → Boxer Recovery**. The iOS adapter reads only Apple Health samples whose source name or ID contains `huawei`. Missing values remain `Unavailable`; the app does not calculate HRV or sleep from unrelated heart-rate samples. On iPhone, use Settings → Connected Sources → **Sync now** after new watch records arrive in Apple Health.
 ## 1. Project Overview
 
 This project proposes a **boxing recovery tracking application for professional boxers**. The application is designed for athletes to use independently during a fight camp to understand their daily recovery condition and make safer training decisions.

@@ -3,8 +3,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../data/athlete_vault.dart';
+import '../data/fightcamp_demo_source.dart';
 import '../data/huawei_apple_health_source.dart';
-import '../data/mock_sources.dart';
 import '../domain/athlete_data.dart';
 import '../domain/recovery_engine.dart';
 
@@ -29,11 +29,11 @@ class BoxerController extends ChangeNotifier {
     if (!await vault.exists()) {
       route = 'setup';
     } else if (await vault.demoAutoUnlockEnabled()) {
-      try {
-        await unlock('demo-passphrase');
-      } catch (_) {
-        route = 'unlock';
-      }
+      // An old demonstration account has a synthetic profile and history.
+      // Creating a real profile replaces it; nothing is deleted on app open.
+      route = 'setup';
+      error =
+          'The old synthetic demo account is retired. Create your real athlete profile to replace it.';
     } else {
       route = 'unlock';
     }
@@ -89,37 +89,46 @@ class BoxerController extends ChangeNotifier {
             officialWeighInWeight: officialWeight),
         privacyAcceptedAt: DateTime.now().toIso8601String(),
         onboardingStage: 'sources');
-    const AutomaticDemoHealthSources().ensure(athlete);
     await vault.create(passphrase, athlete);
     data = athlete;
     navigate('health-preview');
   }
 
-  Future<void> tryDemo() async {
-    final athlete = const DemoDataFactory().create();
-    await vault.create('demo-passphrase', athlete);
-    data = athlete;
-    navigate('today');
-  }
-
   Future<void> unlock(String passphrase) async {
     data = await vault.unlock(passphrase);
-    if (data!.mockOnly && data!.demoAnchorDay == null) {
-      data!.demoAnchorDay = data!.latestCheckIn?.date ?? localDay();
-    }
     if (data!.onboardingStage == 'connect') {
       data!.onboardingStage = 'ready';
     }
-    const AutomaticDemoHealthSources().ensure(data!);
+    _removeLegacySyntheticHealth(data!);
     if (data!.connections['apple'] == 'CONNECTED') {
       await syncHuaweiHealth();
     }
-    await vault.save();
-    if (data!.healthAcceptedAt != null) {
+    if (data!.onboardingStage == 'complete') {
       const MockFightCampSource().ensureDemoData(data!);
-      await vault.save();
     }
+    await vault.save();
     navigate('today');
+  }
+
+  void _removeLegacySyntheticHealth(AthleteData athlete) {
+    athlete.wearables.removeWhere((sample) => sample.mode == 'DEMO');
+    for (final kind in ['apple', 'android', 'mock']) {
+      if (athlete.connections[kind] == 'MOCK_CONNECTED') {
+        athlete.connections.remove(kind);
+      }
+    }
+    athlete.connections.remove('android');
+    athlete.connections.remove('mock');
+    if (athlete.schemaVersion < 2) {
+      // Historical evaluations and next-day comparisons could contain fake
+      // wearable values even if demo samples were removed during a prior live
+      // connection. Preserve the athlete's actual manual and live records.
+      athlete.assessments.clear();
+      for (final action in athlete.actions) {
+        action.nextDay = null;
+      }
+      athlete.schemaVersion = 2;
+    }
   }
 
   Future<void> start() async {
@@ -224,11 +233,6 @@ class BoxerController extends ChangeNotifier {
     await _persistAndGo('camp');
   }
 
-  Future<void> connectDemo(String kind) async {
-    const AutomaticDemoHealthSources().restore(data!, kind);
-    await _persistAndGo('connections');
-  }
-
   Future<void> connectHuaweiHealth() async {
     if (busy) return;
     busy = true;
@@ -243,7 +247,6 @@ class BoxerController extends ChangeNotifier {
       final athlete = data!;
       athlete.healthAcceptedAt = DateTime.now().toIso8601String();
       athlete.connections['apple'] = 'CONNECTED';
-      athlete.connections['android'] = 'DISCONNECTED';
       athlete.wearables.removeWhere((sample) =>
           sample.mode == 'DEMO' ||
           sample.source == HuaweiAppleHealthSource.sourceName);
@@ -295,63 +298,9 @@ class BoxerController extends ChangeNotifier {
     await _persistAndGo('connections');
   }
 
-  Future<void> disconnectDemo(String kind) async {
-    MockHealthSource(kind).disconnect(data!);
-    await _persistAndGo('connections');
-  }
-
-  Future<void> revokeHealthConsent() async {
-    final athlete = data!;
-    athlete.healthAcceptedAt = null;
-    athlete.wearables.clear();
-    athlete.fightCampSessions.clear();
-    athlete.connections['apple'] = 'DISCONNECTED';
-    athlete.connections['android'] = 'DISCONNECTED';
-    athlete.connections['fightcamp'] = 'DISCONNECTED';
-    athlete.connections['mock'] = 'DISCONNECTED';
-    await _persistAndGo('connections');
-  }
-
   Future<void> toggleNotifications() async {
     data!.notifications = !data!.notifications;
     await _persistAndGo('settings');
-  }
-
-  Future<void> advanceMockDay() async {
-    final athlete = data!;
-    if (!athlete.mockOnly) return;
-    if (!athlete.actions.any((action) => action.date == athlete.currentDay)) {
-      throw const FormatException('Complete tonight’s recovery action first.');
-    }
-    final last = athlete.latestWearable;
-    athlete.demoDayOffset += 1;
-    if (last != null) {
-      for (final kind in AutomaticDemoHealthSources.kinds) {
-        if (athlete.connections[kind] != 'MOCK_CONNECTED') continue;
-        final source = MockHealthSource(kind);
-        source.sync(
-            athlete,
-            WearableSample(
-                date: athlete.currentDay,
-                source: source.sourceName,
-                mode: 'DEMO',
-                hrv: last.hrv == null ? null : last.hrv! + 5,
-                restingHr: last.restingHr == null ? null : last.restingHr! - 2,
-                sleepMinutes:
-                    last.sleepMinutes == null ? null : last.sleepMinutes! + 50,
-                workoutMinutes: null));
-      }
-    }
-    await vault.save();
-    navigate('morning');
-  }
-
-  Future<void> restartDemo() async {
-    if (data?.mockOnly != true) return;
-    final athlete = const DemoDataFactory().create();
-    await vault.create('demo-passphrase', athlete);
-    data = athlete;
-    navigate('today');
   }
 
   void lock() {

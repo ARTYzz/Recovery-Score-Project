@@ -49,9 +49,9 @@ class TodayScreen extends StatelessWidget {
           Text(
               '${result.camp.daysOut ?? '—'} days out · ${result.camp.phase.replaceAll('_', ' ').toLowerCase()}',
               style: const TextStyle(color: AppColors.muted)),
-          if (data.mockOnly || todayTraining.isNotEmpty)
+          if (todayTraining.isNotEmpty)
             Text(
-                '${data.mockOnly ? 'DEMO DATA · local and synthetic' : 'LOCAL DATA'}${todayTraining.isEmpty ? '' : ' · ${todayTraining.length} session${todayTraining.length == 1 ? '' : 's'} saved'}',
+                'LOCAL DATA · ${todayTraining.length} session${todayTraining.length == 1 ? '' : 's'} saved',
                 style: const TextStyle(
                     fontSize: 10,
                     color: AppColors.teal,
@@ -238,17 +238,7 @@ class TodayScreen extends StatelessWidget {
           ]),
       const SizedBox(height: 10),
       InkWell(
-          onTap: () async {
-            if (actionDoneToday && data.mockOnly) {
-              try {
-                await controller.advanceMockDay();
-              } catch (error) {
-                controller.showError(error);
-              }
-            } else {
-              controller.navigate('tonight');
-            }
-          },
+          onTap: () => controller.navigate('tonight'),
           child: AppCard(
               color: const Color(0xfff3fbd9),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
@@ -260,10 +250,7 @@ class TodayScreen extends StatelessWidget {
                       SectionLabel(actionDoneToday
                           ? 'Recovery action completed'
                           : 'One thing tonight'),
-                      Text(
-                          actionDoneToday && data.mockOnly
-                              ? 'Continue to next morning · Demo'
-                              : result.action.title,
+                      Text(result.action.title,
                           style: const TextStyle(fontWeight: FontWeight.w800))
                     ])),
                 CircleAvatar(

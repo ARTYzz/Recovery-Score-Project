@@ -313,17 +313,13 @@ class AthleteData {
       this.privacyAcceptedAt,
       this.healthAcceptedAt,
       this.onboardingStage = 'profile',
-      this.mockOnly = false,
-      this.demoAnchorDay,
-      this.demoDayOffset = 0,
+      this.schemaVersion = 2,
       this.notifications = false});
   AthleteProfile? profile;
   String? privacyAcceptedAt;
   String? healthAcceptedAt;
   String onboardingStage;
-  bool mockOnly;
-  String? demoAnchorDay;
-  int demoDayOffset;
+  int schemaVersion;
   bool notifications;
   final Map<String, String> connections = {};
   final List<WearableSample> wearables = [];
@@ -335,10 +331,7 @@ class AthleteData {
   final List<RecoveryActionLog> actions = [];
   final List<Map<String, dynamic>> assessments = [];
 
-  DateTime get currentDate => mockOnly
-      ? (parsedDay(demoAnchorDay) ?? DateTime.now())
-          .add(Duration(days: demoDayOffset))
-      : DateTime.now();
+  DateTime get currentDate => DateTime.now();
   String get currentDay => localDay(currentDate);
 
   bool get morningDue =>
@@ -378,9 +371,7 @@ class AthleteData {
       privacyAcceptedAt: json['privacyAcceptedAt'] as String?,
       healthAcceptedAt: json['healthAcceptedAt'] as String?,
       onboardingStage: json['onboardingStage'] as String? ?? 'complete',
-      mockOnly: json['mockOnly'] == true,
-      demoAnchorDay: json['demoAnchorDay'] as String?,
-      demoDayOffset: intOrNull(json['demoDayOffset']) ?? 0,
+      schemaVersion: intOrNull(json['schemaVersion']) ?? 1,
       notifications: json['notifications'] == true,
     );
     final links = json['connections'];
@@ -414,9 +405,7 @@ class AthleteData {
         'privacyAcceptedAt': privacyAcceptedAt,
         'healthAcceptedAt': healthAcceptedAt,
         'onboardingStage': onboardingStage,
-        'mockOnly': mockOnly,
-        'demoAnchorDay': demoAnchorDay,
-        'demoDayOffset': demoDayOffset,
+        'schemaVersion': schemaVersion,
         'notifications': notifications,
         'connections': connections,
         'wearables': wearables.map((e) => e.toJson()).toList(),

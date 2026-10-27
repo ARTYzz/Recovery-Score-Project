@@ -1,7 +1,34 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:boxer_recovery/data/mock_sources.dart';
+import 'package:boxer_recovery/data/fightcamp_demo_source.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
 import 'package:boxer_recovery/domain/recovery_engine.dart';
+
+/// Explicit test fixture; no synthetic wearable source is shipped in the app.
+AthleteData seededAthlete() {
+  final now = DateTime.now();
+  final athlete = AthleteData(
+      profile: AthleteProfile(
+          name: 'Test athlete',
+          fightDate: localDay(now.add(const Duration(days: 32)))));
+  const MockFightCampSource().ensureDemoData(athlete, at: now);
+  for (var daysAgo = 10; daysAgo >= 0; daysAgo--) {
+    athlete.wearables.add(WearableSample(
+        date: localDay(now.subtract(Duration(days: daysAgo))),
+        source: 'Test fixture',
+        mode: 'TEST',
+        hrv: (daysAgo == 0 ? 58 : 69 + daysAgo % 4).toDouble(),
+        restingHr: (daysAgo == 0 ? 47 : 41 + daysAgo % 3).toDouble(),
+        sleepMinutes: daysAgo == 0 ? 342 : 430 + daysAgo % 4 * 12));
+  }
+  for (var daysAgo = 6; daysAgo >= 0; daysAgo--) {
+    athlete.saveMorning(MorningCheckIn(
+        date: localDay(now.subtract(Duration(days: daysAgo))),
+        weight: 74.6 + daysAgo * .15,
+        urine: 2,
+        mood: daysAgo == 0 ? 'Low' : 'OK'));
+  }
+  return athlete;
+}
 
 void main() {
   test('missing wearable data stays unavailable and does not become zero', () {
@@ -22,14 +49,11 @@ void main() {
     final athlete = AthleteData();
     athlete.wearables.add(WearableSample(
         date: localDay(),
-        source: 'Apple Health demo',
-        mode: 'DEMO',
+        source: 'Test sleep fixture',
+        mode: 'TEST',
         sleepMinutes: 437));
     athlete.wearables.add(WearableSample(
-        date: localDay(),
-        source: 'Health Connect demo',
-        mode: 'DEMO',
-        hrv: 66));
+        date: localDay(), source: 'Test HRV fixture', mode: 'TEST', hrv: 66));
     expect(athlete.latestWearable?.sleepMinutes, isNull);
     expect(athlete.latestSleepSample?.sleepMinutes, 437);
     final assessment = RecoveryEngine().assess(athlete);
@@ -40,7 +64,7 @@ void main() {
   });
 
   test('head symptoms override training even with baseline data', () {
-    final athlete = const DemoDataFactory().create();
+    final athlete = seededAthlete();
     athlete.saveMorning(MorningCheckIn(
         date: localDay(),
         weight: 74.6,
@@ -58,21 +82,12 @@ void main() {
 
   test('FightCamp mock uses normalized session model and personal baseline',
       () {
-    final athlete = const DemoDataFactory().create();
+    final athlete = seededAthlete();
     final assessment = RecoveryEngine().assess(athlete);
     expect(athlete.connections['fightcamp'], 'MOCK_CONNECTED');
     expect(athlete.latestFightCamp!.mode, 'DEMO');
     expect(assessment.baselines['punch']!.ready, isTrue);
     expect(assessment.domains['power']!.status, isNot('INSUFFICIENT_DATA'));
-  });
-
-  test('disconnect removes mock health records', () {
-    final athlete = AthleteData();
-    const source = MockHealthSource('apple');
-    source.seedHistory(athlete);
-    expect(athlete.wearables, isNotEmpty);
-    source.disconnect(athlete);
-    expect(athlete.wearables, isEmpty);
   });
 
   test('daily check-in is due only on a new day', () {
@@ -149,7 +164,7 @@ void main() {
 
   test('long hard conditioning limits intervals without restricting strength',
       () {
-    final athlete = const DemoDataFactory().create();
+    final athlete = seededAthlete();
     athlete.sessions.add(TrainingSession(
         date: athlete.currentDay,
         type: 'Conditioning',
@@ -164,7 +179,7 @@ void main() {
   });
 
   test('long hard technical boxing changes body and power guidance', () {
-    final athlete = const DemoDataFactory().create();
+    final athlete = seededAthlete();
     athlete.sessions.add(TrainingSession(
         date: athlete.currentDay,
         type: 'Boxing / Technical',
@@ -180,7 +195,7 @@ void main() {
 
   test('body restriction becomes primary limiter over equally restricted sleep',
       () {
-    final athlete = const DemoDataFactory().create();
+    final athlete = seededAthlete();
     athlete.sessions.add(TrainingSession(
         date: athlete.currentDay,
         type: 'Strength',
@@ -194,7 +209,7 @@ void main() {
   });
 
   test('severe pain safety overrides all four categories', () {
-    final athlete = const DemoDataFactory().create();
+    final athlete = seededAthlete();
     athlete.sessions.add(TrainingSession(
         date: athlete.currentDay,
         type: 'Strength',

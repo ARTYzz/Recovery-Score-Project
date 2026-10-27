@@ -313,43 +313,9 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('Privacy & consent'),
             subtitle: Text(
-                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health: ${data.connections['apple'] == 'CONNECTED' ? 'Apple Health live' : 'Demo or unavailable'}'))
+                'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health: ${data.connections['apple'] == 'CONNECTED' ? 'Apple Health live' : 'Not connected'}'))
       ])),
       const SizedBox(height: 15),
-      if (data.mockOnly) ...[
-        AppCard(
-            color: const Color(0xfff3fbd9),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const SectionLabel('Presentation demo'),
-              const SizedBox(height: 6),
-              const Text(
-                  'Synthetic records are stored locally and survive a reload.',
-                  style: TextStyle(fontSize: 12)),
-              TextButton(
-                  onPressed: () async {
-                    final reset = await showDialog<bool>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                                title: const Text('Restart demo?'),
-                                content: const Text(
-                                    'This clears only the current synthetic demo records and restores the starter dataset.'),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(dialogContext, false),
-                                      child: const Text('Cancel')),
-                                  TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(dialogContext, true),
-                                      child: const Text('Restart demo'))
-                                ]));
-                    if (reset == true) await controller.restartDemo();
-                  },
-                  child: const Text('Restart with fresh demo data'))
-            ])),
-        const SizedBox(height: 15),
-      ],
       OutlinedButton(onPressed: controller.lock, child: const Text('Lock app')),
       const SizedBox(height: 10),
       OutlinedButton(
@@ -389,78 +355,53 @@ class ConnectionsScreen extends StatelessWidget {
       const SizedBox(height: 12),
       Text(
           controller.huaweiHealth.supported
-              ? 'Huawei Health can share records with Apple Health. Connect here to read Huawei sleep, HRV, resting HR and workout data on this iPhone.'
-              : 'On this device Apple Health and Health Connect are demo sources. Live Huawei reading requires the iPhone app.',
+              ? 'Read Huawei records shared to Apple Health on this iPhone. A connected status does not guarantee every metric is available.'
+              : 'Live Apple Health reading requires an iPhone. No wearable data is simulated on this device.',
           style: const TextStyle(color: AppColors.muted)),
       const SizedBox(height: 18),
-      if (controller.huaweiHealth.supported) ...[
-        AppCard(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Huawei via Apple Health',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-          const SizedBox(height: 6),
-          Text(
-              data.connections['apple'] == 'CONNECTED'
-                  ? 'Live · ${data.wearables.where((e) => e.mode == 'LIVE').length} day(s) imported. Missing metrics stay Unavailable.'
-                  : 'Not connected · Apple Health permission and Huawei records required.',
-              style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 8),
-          if (data.connections['apple'] == 'CONNECTED') ...[
-            TextButton(
-                onPressed: controller.busy ? null : controller.syncHuaweiHealth,
-                child: const Text('Sync now')),
-            TextButton(
-                onPressed:
-                    controller.busy ? null : controller.disconnectHuaweiHealth,
-                child: const Text('Disconnect and clear imported data')),
-          ] else
-            TextButton(
-                onPressed:
-                    controller.busy ? null : controller.connectHuaweiHealth,
-                child: const Text('Connect Huawei data')),
-        ])),
-        const SizedBox(height: 10),
-      ],
-      for (final kind in ['apple', 'android', 'fightcamp'].where((kind) =>
-          !(kind == 'apple' && data.connections['apple'] == 'CONNECTED'))) ...[
-        AppCard(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-              kind == 'apple'
-                  ? 'Apple Health'
-                  : kind == 'android'
-                      ? 'Health Connect'
-                      : 'FightCamp',
-              style:
-                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-          Text(
-              data.connections[kind] == 'MOCK_CONNECTED'
-                  ? kind == 'fightcamp'
-                      ? 'Demo connected automatically · synthetic punch data'
-                      : 'Demo connected automatically · Sleep, HRV, Resting HR'
-                  : data.connections[kind] == 'DISCONNECTED'
-                      ? 'Demo disconnected · no data from this source'
-                      : 'Unavailable · no live connection',
-              style: const TextStyle(color: AppColors.muted)),
-          if (kind != 'fightcamp')
-            TextButton(
-                onPressed: () => data.connections[kind] == 'MOCK_CONNECTED'
-                    ? controller.disconnectDemo(kind)
-                    : controller.connectDemo(kind),
-                child: Text(data.connections[kind] == 'MOCK_CONNECTED'
-                    ? 'Disconnect demo data'
-                    : 'Restore demo data'))
-        ])),
-        const SizedBox(height: 10)
-      ],
-      if (data.healthAcceptedAt != null)
-        OutlinedButton(
-            onPressed: () => controller.revokeHealthConsent(),
-            child: const Text(
-                'Revoke health-data consent and clear source data',
-                style: TextStyle(color: AppColors.red, fontSize: 12))),
+      AppCard(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Huawei via Apple Health',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        const SizedBox(height: 6),
+        Text(
+            data.connections['apple'] == 'CONNECTED'
+                ? 'Live · ${data.wearables.where((e) => e.mode == 'LIVE').length} day(s) imported. Missing metrics stay Unavailable.'
+                : 'Not connected · Apple Health permission and Huawei records required.',
+            style: const TextStyle(color: AppColors.muted)),
+        const SizedBox(height: 8),
+        if (controller.huaweiHealth.supported &&
+            data.connections['apple'] == 'CONNECTED') ...[
+          TextButton(
+              onPressed: controller.busy ? null : controller.syncHuaweiHealth,
+              child: const Text('Sync now')),
+          TextButton(
+              onPressed:
+                  controller.busy ? null : controller.disconnectHuaweiHealth,
+              child: const Text('Disconnect and clear imported data')),
+        ] else if (controller.huaweiHealth.supported)
+          TextButton(
+              onPressed:
+                  controller.busy ? null : controller.connectHuaweiHealth,
+              child: const Text('Connect Huawei data')),
+      ])),
+      const SizedBox(height: 10),
+      AppCard(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('FightCamp',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        Text(
+            data.connections['fightcamp'] == 'MOCK_CONNECTED'
+                ? 'Mock source · synthetic punch data only'
+                : 'Not loaded yet',
+            style: const TextStyle(color: AppColors.muted)),
+      ])),
+      const SizedBox(height: 10),
+      const Text(
+          'To revoke Apple Health read permission, use the iPhone Health app. Disconnect here clears locally imported records.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12)),
     ]);
   }
 }

@@ -96,17 +96,6 @@ class _SetupScreenState extends State<SetupScreen> {
             widget.controller.showError(e);
           }
         }),
-        const SizedBox(height: 15),
-        Center(
-            child: TextButton(
-                onPressed: () async {
-                  try {
-                    await widget.controller.tryDemo();
-                  } catch (e) {
-                    widget.controller.showError(e);
-                  }
-                },
-                child: const Text('Try synthetic demo'))),
       ]);
 }
 
@@ -160,21 +149,27 @@ class HealthPreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = controller.data;
     final sleep = data?.latestSleepSample;
+    final hrv = data?.latestMetricSample((sample) => sample.hrv);
+    final restingHr = data?.latestMetricSample((sample) => sample.restingHr);
+    final connected = data?.connections['apple'] == 'CONNECTED';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionLabel('HEALTH DATA · STEP 2'),
       const SizedBox(height: 10),
-      Text('Your data is ready.',
+      Text('Connect health data.',
           style: Theme.of(context).textTheme.headlineLarge),
       const SizedBox(height: 8),
       const Text(
-          'Clearly labelled health demo data loads automatically. On iPhone, you can later allow read-only Apple Health access in Settings.',
+          'On iPhone, allow read-only Apple Health access to import records shared by Huawei Health. Missing metrics stay Unavailable.',
           style: TextStyle(color: AppColors.muted)),
       const SizedBox(height: 20),
       AppCard(
           color: const Color(0xfff3fbd9),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('DEMO HEALTH DATA CONNECTED',
+            Text(
+                connected
+                    ? 'HUAWEI VIA APPLE HEALTH · LIVE'
+                    : 'NO HEALTH DATA CONNECTED',
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -182,30 +177,35 @@ class HealthPreviewScreen extends StatelessWidget {
             const SizedBox(height: 7),
             Text(
                 sleep?.sleepMinutes == null
-                    ? 'Sleep unavailable'
+                    ? 'Sleep Unavailable'
                     : 'Sleep ${sleep!.sleepMinutes! ~/ 60} h ${sleep.sleepMinutes! % 60} min',
                 style:
                     const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-            const Text('HRV · Resting HR · Workout',
-                style: TextStyle(color: AppColors.muted))
+            Text(
+                'HRV ${hrv?.hrv?.round() ?? 'Unavailable'} · Resting HR ${restingHr?.restingHr?.round() ?? 'Unavailable'}',
+                style: const TextStyle(color: AppColors.muted))
           ])),
       const SizedBox(height: 16),
-      const FieldTitle('Ready in this prototype'),
-      _sourceCard(Icons.favorite_outline, 'Apple Health',
-          'Demo connected automatically · no Apple account linked'),
+      const FieldTitle('Sources'),
+      _sourceCard(
+          Icons.favorite_outline,
+          'Apple Health',
+          connected
+              ? 'Huawei records imported from this iPhone'
+              : 'Not connected · available on iPhone'),
       const SizedBox(height: 9),
-      _sourceCard(Icons.monitor_heart_outlined, 'Health Connect',
-          'Demo connected automatically · no Android permission granted'),
-      const SizedBox(height: 18),
-      const FieldTitle('Real-device connection'),
-      _sourceCard(Icons.watch_outlined, 'Smartwatch',
-          'Connect through the phone’s health platform after permission'),
-      const SizedBox(height: 9),
-      _sourceCard(Icons.scale_outlined, 'Smart scale',
-          'Device connection planned · enter morning weight manually now'),
+      _sourceCard(Icons.sports_mma_outlined, 'FightCamp',
+          'Synthetic punch history for this prototype only'),
       const SizedBox(height: 16),
-      const Text('This screen shows demo data. Connect Huawei via Apple Health in Settings on iPhone; a smart scale is not connected.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12)),
+      if (controller.huaweiHealth.supported && !connected) ...[
+        PrimaryButton('Connect Apple Health',
+            onPressed: controller.connectHuaweiHealth),
+        const SizedBox(height: 12),
+      ],
+      if (!controller.huaweiHealth.supported)
+        const Text(
+            'Live Apple Health reading requires an iPhone. You can continue with unavailable metrics.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12)),
       const SizedBox(height: 26),
       PrimaryButton('Continue',
           onPressed: () async => controller.continueFromHealthPreview()),
@@ -273,7 +273,7 @@ class BaselineIntroScreen extends StatelessWidget {
           'Resting HR ${restingHr?.restingHr?.round().toString() ?? 'Unavailable'} bpm'),
       const SizedBox(height: 8),
       const Text(
-          'Demo sources are ready automatically. On iPhone, connect Huawei via Apple Health in Settings when you are ready.',
+          'Apple Health values appear after you grant access and matching records are available. FightCamp punch data is a labelled prototype source.',
           style: TextStyle(color: AppColors.muted, fontSize: 12)),
       const SizedBox(height: 18),
       const FieldTitle('Manual inputs'),
