@@ -7,6 +7,7 @@ import '../domain/athlete_data.dart';
 /// HealthKit is the only live integration here; there is no Huawei API login.
 class HuaweiAppleHealthSource {
   static const sourceName = 'Huawei via Apple Health';
+  HealthReadSummary? lastReadSummary;
   static const types = [
     HealthDataType.SLEEP_ASLEEP,
     HealthDataType.SLEEP_LIGHT,
@@ -46,16 +47,65 @@ class HuaweiAppleHealthSource {
         types: types,
         startTime: now.subtract(const Duration(days: 14)),
         endTime: now);
+    lastReadSummary = HealthReadSummary.fromPoints(points, checkedAt: now);
     return HuaweiHealthNormalizer.normalize(points);
+  }
+}
+
+/// Counts readable HealthKit records without storing values or source names.
+/// An empty result cannot distinguish no records from denied read permission.
+class HealthReadSummary {
+  const HealthReadSummary({
+    required this.checkedAt,
+    required this.huaweiHrvRecords,
+    required this.otherHrvRecords,
+  });
+
+  final DateTime checkedAt;
+  final int huaweiHrvRecords;
+  final int otherHrvRecords;
+
+  factory HealthReadSummary.fromPoints(List<HealthDataPoint> points,
+      {required DateTime checkedAt}) {
+    var huaweiHrv = 0;
+    var otherHrv = 0;
+    for (final point in points) {
+      if (point.type != HealthDataType.HEART_RATE_VARIABILITY_SDNN ||
+          point.value is! NumericHealthValue ||
+          (point.value as NumericHealthValue).numericValue <= 0) {
+        continue;
+      }
+      if (HuaweiHealthNormalizer.isHuawei(point)) {
+        huaweiHrv++;
+      } else {
+        otherHrv++;
+      }
+    }
+    return HealthReadSummary(
+        checkedAt: checkedAt,
+        huaweiHrvRecords: huaweiHrv,
+        otherHrvRecords: otherHrv);
+  }
+
+  String get hrvExplanation {
+    if (huaweiHrvRecords > 0) {
+      return 'Huawei HRV (SDNN) records were readable in Apple Health.';
+    }
+    if (otherHrvRecords > 0) {
+      return 'Apple Health has readable HRV records from another source. This app currently imports Huawei records only.';
+    }
+    return 'No Huawei HRV (SDNN) record was readable in the last 14 days. Check Heart Rate Variability > Data Sources in Apple Health and Boxer Recovery read access. HealthKit does not reveal whether a missing record or denied read access caused this.';
   }
 }
 
 /// Converts HealthKit samples into the app's nullable daily wearable model.
 class HuaweiHealthNormalizer {
+  static bool isHuawei(HealthDataPoint point) =>
+      point.sourceName.toLowerCase().contains('huawei') ||
+      point.sourceId.toLowerCase().contains('huawei');
+
   static List<WearableSample> normalize(List<HealthDataPoint> points) {
-    final huawei = points.where((point) =>
-        point.sourceName.toLowerCase().contains('huawei') ||
-        point.sourceId.toLowerCase().contains('huawei'));
+    final huawei = points.where(isHuawei);
     final days = <String, _DayMetrics>{};
     for (final point in huawei) {
       final isSleep = const {

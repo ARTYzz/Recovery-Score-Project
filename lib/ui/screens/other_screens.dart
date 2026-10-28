@@ -370,6 +370,11 @@ class ConnectionsScreen extends StatelessWidget {
                 ? 'Live · ${data.wearables.where((e) => e.mode == 'LIVE').length} day(s) imported. Missing metrics stay Unavailable.'
                 : 'Not connected · Apple Health permission and Huawei records required.',
             style: const TextStyle(color: AppColors.muted)),
+        if (controller.huaweiHealth.lastReadSummary != null) ...[
+          const SizedBox(height: 8),
+          Text(controller.huaweiHealth.lastReadSummary!.hrvExplanation,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        ],
         const SizedBox(height: 8),
         if (controller.huaweiHealth.supported &&
             data.connections['apple'] == 'CONNECTED') ...[

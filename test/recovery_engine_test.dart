@@ -63,6 +63,24 @@ void main() {
     expect(RecoveryOverview.fromAssessment(assessment).score, isNull);
   });
 
+  test('Sleep and resting HR can assess recovery without HRV', () {
+    final athlete = AthleteData();
+    final now = DateTime.now();
+    for (var daysAgo = 7; daysAgo >= 0; daysAgo--) {
+      athlete.wearables.add(WearableSample(
+          date: localDay(now.subtract(Duration(days: daysAgo))),
+          source: 'Test HealthKit fixture',
+          mode: 'TEST',
+          sleepMinutes: 430,
+          restingHr: 50));
+    }
+    final assessment = RecoveryEngine().assess(athlete);
+    expect(assessment.baselines['hrv']!.value, isNull);
+    expect(assessment.baselines['sleep']!.ready, isTrue);
+    expect(assessment.baselines['restingHr']!.ready, isTrue);
+    expect(assessment.domains['sleep']!.status, 'READY');
+  });
+
   test('head symptoms override training even with baseline data', () {
     final athlete = seededAthlete();
     athlete.saveMorning(MorningCheckIn(

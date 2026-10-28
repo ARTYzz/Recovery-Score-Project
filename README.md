@@ -39,6 +39,8 @@ Nutrition remains a quick Yes/No, protein, and carbohydrate check. The optional 
 ### Huawei watch through Apple Health on iPhone
 
 The live path is **HUAWEI WATCH FIT 5 → HUAWEI Health: Global → Apple Health → Boxer Recovery**. The iOS adapter reads only Apple Health samples whose source name or ID contains `huawei`. Missing values remain `Unavailable`; the app does not calculate HRV or sleep from unrelated heart-rate samples. On iPhone, use Settings → Connected Sources → **Sync now** after new watch records arrive in Apple Health.
+
+The Today card labelled **Resting HR** reads Apple Health's resting-heart-rate category, not a general heart-rate sample. HRV is read only from Apple Health's HRV (SDNN) category. If that category has no readable Huawei record, HRV remains `Unavailable`; Sleep & Heart can still use sleep and resting HR as their own baseline accumulates. Connected Sources explains whether readable HRV records came from Huawei, another source, or were absent from the HealthKit query. HealthKit does not expose a reliable read-permission-denied status for individual categories.
 ## 1. Project Overview
 
 This project proposes a **boxing recovery tracking application for professional boxers**. The application is designed for athletes to use independently during a fight camp to understand their daily recovery condition and make safer training decisions.

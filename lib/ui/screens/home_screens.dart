@@ -164,10 +164,16 @@ class TodayScreen extends StatelessWidget {
                 unit: hrv?.hrv == null ? '' : ' ms')),
         const SizedBox(width: 8),
         Expanded(
-            child: MetricTile('Last HR',
+            child: MetricTile('Resting HR',
                 restingHr?.restingHr?.round().toString() ?? 'Unavailable',
                 unit: restingHr?.restingHr == null ? '' : ' bpm'))
       ]),
+      if (hrv?.hrv == null && controller.huaweiHealth.supported)
+        Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+                onPressed: () => controller.navigate('connections'),
+                child: const Text('Why is HRV unavailable?'))),
       const SizedBox(height: 10),
       AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
