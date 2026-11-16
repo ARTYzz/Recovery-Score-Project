@@ -381,7 +381,7 @@ class AthleteData {
     if (selected != null) return selected;
     WearableSample? best;
     for (final sample in wearables) {
-      if (sample.mode != 'LIVE' || !HealthSource.isSupported(sample.source)) {
+      if (sample.mode != 'LIVE' || !HealthSource.isImported(sample.source)) {
         continue;
       }
       if (best == null ||
@@ -404,6 +404,13 @@ class AthleteData {
 
   Iterable<WearableSample> get activeWearables =>
       wearables.where((sample) => sample.source == activeHealthSource);
+
+  String? get activeHealthSourceLabel {
+    final sample = latestWearable;
+    if (sample == null) return null;
+    return HealthSource.label(sample.source,
+        name: sample.sourceName, id: sample.sourceId);
+  }
 
   WearableSample? get latestWearable {
     for (final sample in wearables.reversed) {

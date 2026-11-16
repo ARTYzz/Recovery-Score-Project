@@ -309,7 +309,7 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.watch_outlined),
             title: const Text('Connected sources'),
             subtitle: Text(data.connections['apple'] == 'CONNECTED'
-                ? '${data.activeHealthSource ?? 'Apple Health'} · live data'
+                ? '${data.activeHealthSourceLabel ?? 'Apple Health'} · live data'
                 : 'Health data sources and permissions'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => controller.navigate('connections')),
@@ -379,6 +379,17 @@ class ConnectionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = controller.data!;
+    final imported = data.wearables
+        .where((sample) => HealthSource.isImported(sample.source))
+        .toList();
+    final sourceKeys = imported.map((sample) => sample.source).toSet().toList();
+    String sourceLabel(String source) {
+      final sample = imported.lastWhere((sample) => sample.source == source);
+      return HealthSource.label(source,
+          name: sample.sourceName, id: sample.sourceId);
+    }
+
+    sourceKeys.sort((a, b) => sourceLabel(a).compareTo(sourceLabel(b)));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       PageHeader(
           title: 'Connected Sources',
@@ -386,7 +397,7 @@ class ConnectionsScreen extends StatelessWidget {
       const SizedBox(height: 12),
       Text(
           controller.appleHealth.supported
-              ? 'Read Huawei, Garmin and Apple Watch records shared to Apple Health on this iPhone. Select one source for recovery scoring and trends.'
+              ? 'Sources with readable records in Apple Health appear here automatically. Select one source for recovery scoring and trends. A source may be an app or a device.'
               : 'Live Apple Health reading requires an iPhone. No wearable data is simulated on this device.',
           style: const TextStyle(color: AppColors.muted)),
       const SizedBox(height: 18),
@@ -398,32 +409,30 @@ class ConnectionsScreen extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
             data.connections['apple'] == 'CONNECTED'
-                ? '${controller.appleHealth.lastReadSummary?.supportedRecords == 0 ? 'Saved history' : 'Imported'} · ${data.wearables.where((e) => HealthSource.isSupported(e.source)).length} source-day records. Missing metrics stay Unavailable.'
-                : 'Not connected · Apple Health permission and watch records required.',
+                ? '${controller.appleHealth.lastReadSummary?.importedRecords == 0 ? 'Saved history' : 'Imported'} · ${imported.length} source-day records. Missing metrics stay Unavailable.'
+                : 'Not connected · Apple Health permission and readable records required.',
             style: const TextStyle(color: AppColors.muted)),
         if (data.connections['apple'] == 'CONNECTED') ...[
           const SizedBox(height: 12),
           const Text('Source used for recovery assessment',
               style: TextStyle(fontWeight: FontWeight.w700)),
-          for (final source in HealthSource.supported)
+          for (final source in sourceKeys)
             ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(data.activeHealthSource == source
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked),
-                title: Text(source),
+                title: Text(sourceLabel(source)),
                 subtitle: Text(
-                    '${data.wearables.where((sample) => sample.source == source).length} day(s) imported · ${controller.appleHealth.lastReadSummary?.countFor(source) ?? 0} record(s) in last read'),
-                onTap: data.wearables.any((sample) => sample.source == source)
-                    ? () => controller.selectHealthSource(source)
-                    : null),
+                    '${imported.where((sample) => sample.source == source).length} day(s) imported · ${controller.appleHealth.lastReadSummary?.countFor(source) ?? 0} record(s) in last read\nSource ID: ${imported.lastWhere((sample) => sample.source == source).sourceId ?? 'Not provided'}'),
+                onTap: () => controller.selectHealthSource(source)),
         ],
         if (controller.appleHealth.lastReadSummary != null) ...[
           const SizedBox(height: 8),
-          if (controller.appleHealth.lastReadSummary!.supportedRecords == 0)
+          if (controller.appleHealth.lastReadSummary!.importedRecords == 0)
             const Text(
-                'Last sync returned no supported watch records. Saved history is unchanged; check Apple Health data and read access.',
+                'Last sync returned no records with an identifiable source. Saved history is unchanged; check Apple Health data and read access.',
                 style: TextStyle(color: AppColors.amber, fontSize: 12)),
           Text(
               controller.appleHealth.lastReadSummary!

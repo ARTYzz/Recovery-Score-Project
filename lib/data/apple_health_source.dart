@@ -4,8 +4,8 @@ import 'package:health/health.dart';
 import '../domain/athlete_data.dart';
 import '../domain/health_source.dart';
 
-/// Reads supported device records already present in Apple Health. This is a
-/// HealthKit connection, not a direct Huawei, Garmin or Apple Watch API login.
+/// Reads records already present in Apple Health from their reported sources.
+/// This is a HealthKit connection, not a direct wearable vendor API login.
 class AppleHealthSource {
   HealthReadSummary? lastReadSummary;
   static const types = [
@@ -46,7 +46,8 @@ class AppleHealthSource {
     final points = await health.getHealthDataFromTypes(
         types: types,
         startTime: now.subtract(const Duration(days: 14)),
-        endTime: now);
+        endTime: now,
+        recordingMethodsToFilter: const [RecordingMethod.manual]);
     lastReadSummary = HealthReadSummary.fromPoints(points, checkedAt: now);
     return AppleHealthNormalizer.normalize(points);
   }
@@ -66,7 +67,7 @@ class HealthReadSummary {
   final Map<String, int> recordsBySource;
   final Map<String, int> hrvBySource;
   final int otherHrvRecords;
-  int get supportedRecords =>
+  int get importedRecords =>
       recordsBySource.values.fold(0, (sum, count) => sum + count);
   int countFor(String source) => recordsBySource[source] ?? 0;
 
@@ -76,6 +77,7 @@ class HealthReadSummary {
     final hrv = <String, int>{};
     var otherHrv = 0;
     for (final point in points) {
+      if (point.recordingMethod == RecordingMethod.manual) continue;
       final source = AppleHealthNormalizer.sourceFor(point);
       if (source != null) {
         records.update(source, (count) => count + 1, ifAbsent: () => 1);
@@ -100,7 +102,7 @@ class HealthReadSummary {
 
   String hrvExplanation(String? selectedSource) {
     if (selectedSource != null && (hrvBySource[selectedSource] ?? 0) > 0) {
-      return '$selectedSource has readable HRV (SDNN) records.';
+      return 'The selected source has readable HRV (SDNN) records.';
     }
     if (hrvBySource.isNotEmpty || otherHrvRecords > 0) {
       return 'HRV exists from another source, but no HRV was readable from the selected source. Sources are not mixed for recovery scoring.';
@@ -109,24 +111,12 @@ class HealthReadSummary {
   }
 }
 
-/// Converts HealthKit samples into the app's nullable daily wearable model.
+/// Converts HealthKit samples into the app's nullable daily source model.
 class AppleHealthNormalizer {
   static String? sourceFor(HealthDataPoint point) {
-    final name = point.sourceName.toLowerCase();
-    final id = point.sourceId.toLowerCase();
-    if (name.contains('huawei') || id.contains('huawei')) {
-      return HealthSource.huawei;
-    }
-    if (name.contains('garmin') || id.contains('garmin')) {
-      return HealthSource.garmin;
-    }
-    // HealthKit's source name can include the owner's watch name. The generic
-    // com.apple.health bundle ID alone also covers iPhone Health app entries.
-    if (name.contains('apple watch') ||
-        point.sourceDeviceId.toLowerCase().contains('apple watch')) {
-      return HealthSource.appleWatch;
-    }
-    return null;
+    if (point.recordingMethod == RecordingMethod.manual) return null;
+    return HealthSource.fromProvenance(
+        name: point.sourceName, id: point.sourceId);
   }
 
   static List<WearableSample> normalize(List<HealthDataPoint> points) {

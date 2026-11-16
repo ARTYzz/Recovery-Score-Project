@@ -234,7 +234,7 @@ class HealthPreviewScreen extends StatelessWidget {
           style: Theme.of(context).textTheme.headlineLarge),
       const SizedBox(height: 8),
       const Text(
-          'On iPhone, allow read-only Apple Health access to import records from Huawei, Garmin or Apple Watch. Missing metrics stay Unavailable.',
+          'On iPhone, allow read-only Apple Health access. Sources with readable records appear automatically, including watches and rings that write to Apple Health. Missing metrics stay Unavailable.',
           style: TextStyle(color: AppColors.muted)),
       const SizedBox(height: 20),
       AppCard(
@@ -243,7 +243,7 @@ class HealthPreviewScreen extends StatelessWidget {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
                 connected
-                    ? '${data?.activeHealthSource?.toUpperCase() ?? 'APPLE HEALTH'} · LIVE'
+                    ? '${data?.activeHealthSourceLabel?.toUpperCase() ?? 'APPLE HEALTH'} · LIVE'
                     : 'NO HEALTH DATA CONNECTED',
                 style: TextStyle(
                     fontSize: 11,
@@ -266,7 +266,7 @@ class HealthPreviewScreen extends StatelessWidget {
           Icons.favorite_outline,
           'Apple Health',
           connected
-              ? '${data?.activeHealthSource ?? 'Watch'} records imported from this iPhone'
+              ? '${data?.activeHealthSourceLabel ?? 'Health data'} records imported from this iPhone'
               : 'Not connected · available on iPhone'),
       const SizedBox(height: 9),
       _sourceCard(Icons.sports_mma_outlined, 'FightCamp',

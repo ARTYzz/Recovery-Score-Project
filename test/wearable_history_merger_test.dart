@@ -159,4 +159,22 @@ void main() {
         athlete, TrendWindow(TrendPeriod.year, DateTime(2026, 11, 12)));
     expect(trends.metrics['Sleep']!.values.whereType<double>(), isEmpty);
   });
+
+  test('old labelled history moves to its real HealthKit identity on sync', () {
+    final athlete = AthleteData();
+    athlete.wearables.add(WearableSample(
+        date: '2026-11-11',
+        source: HealthSource.huawei,
+        mode: 'LIVE',
+        sourceId: 'com.huawei.health',
+        sourceName: 'HUAWEI Health',
+        sleepMinutes: 420));
+    final current = HealthSource.fromProvenance(
+        name: 'HUAWEI Health', id: 'com.huawei.health')!;
+    const WearableHistoryMerger().merge(athlete, [
+      sample('2026-11-12', source: current, hrv: 52),
+    ]);
+    expect(athlete.wearables.map((sample) => sample.source).toSet(), {current});
+    expect(athlete.wearables.first.sleepMinutes, 420);
+  });
 }

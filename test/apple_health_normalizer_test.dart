@@ -6,6 +6,7 @@ import 'package:health/health.dart';
 HealthDataPoint point(HealthDataType type, String from, String to,
     {String source = 'HUAWEI Health: Global',
     String? sourceId,
+    RecordingMethod recordingMethod = RecordingMethod.automatic,
     num value = 1}) {
   return HealthDataPoint(
     uuid: '$type-$from',
@@ -18,12 +19,15 @@ HealthDataPoint point(HealthDataType type, String from, String to,
     sourceDeviceId: '',
     sourceId: sourceId ?? source,
     sourceName: source,
+    recordingMethod: recordingMethod,
   );
 }
 
 void main() {
-  test('imports only supported watch records and does not double count sleep',
-      () {
+  final huawei = HealthSource.fromProvenance(
+      name: 'HUAWEI Health: Global', id: 'HUAWEI Health: Global')!;
+
+  test('keeps source records separate and does not double count sleep', () {
     final samples = AppleHealthNormalizer.normalize([
       point(HealthDataType.SLEEP_ASLEEP, '2026-10-26T23:00:00',
           '2026-10-27T01:00:00'),
@@ -41,23 +45,34 @@ void main() {
           '2026-10-27T07:00:01',
           source: 'Other Watch', value: 100),
     ]);
-    expect(samples, hasLength(1));
-    expect(samples.single.sleepMinutes, 120);
-    expect(samples.single.hrv, 52);
-    expect(samples.single.restingHr, 48);
-    expect(samples.single.heartRate, isNull);
-    expect(samples.single.workoutMinutes, isNull);
-    expect(samples.single.mode, 'LIVE');
+    expect(samples, hasLength(2));
+    final watch = samples.singleWhere((sample) => sample.source == huawei);
+    expect(watch.sleepMinutes, 120);
+    expect(watch.hrv, 52);
+    expect(watch.restingHr, 48);
+    expect(watch.heartRate, isNull);
+    expect(watch.workoutMinutes, isNull);
+    expect(watch.mode, 'LIVE');
   });
 
-  test('missing supported watch records stay unavailable', () {
+  test('records without any source identity stay unavailable', () {
     expect(
         AppleHealthNormalizer.normalize([
           point(HealthDataType.HEART_RATE, '2026-10-27T07:00:00',
               '2026-10-27T07:00:01',
-              source: 'Other Watch', value: 65)
+              source: '', sourceId: '', value: 65)
         ]),
         isEmpty);
+  });
+
+  test('manually entered Health records are not treated as wearable data', () {
+    final manual = point(
+        HealthDataType.HEART_RATE, '2026-10-27T07:00:00', '2026-10-27T07:00:01',
+        source: 'Health',
+        sourceId: 'com.apple.health',
+        recordingMethod: RecordingMethod.manual,
+        value: 65);
+    expect(AppleHealthNormalizer.normalize([manual]), isEmpty);
   });
 
   test('HRV read summary distinguishes selected and other readable sources',
@@ -67,12 +82,11 @@ void main() {
         source: 'Another Watch', value: 52);
     final summary = HealthReadSummary.fromPoints([hrvFromOtherSource],
         checkedAt: DateTime.parse('2026-10-27T08:00:00'));
-    expect(summary.countFor(HealthSource.huawei), 0);
-    expect(summary.supportedRecords, 0);
-    expect(summary.otherHrvRecords, 1);
-    expect(summary.hrvExplanation(HealthSource.huawei),
-        contains('another source'));
-    expect(AppleHealthNormalizer.normalize([hrvFromOtherSource]), isEmpty);
+    expect(summary.countFor(huawei), 0);
+    expect(summary.importedRecords, 1);
+    expect(summary.otherHrvRecords, 0);
+    expect(summary.hrvExplanation(huawei), contains('another source'));
+    expect(AppleHealthNormalizer.normalize([hrvFromOtherSource]), hasLength(1));
   });
 
   test('missing HRV does not infer it from heart rate', () {
@@ -81,13 +95,13 @@ void main() {
           '2026-10-27T07:00:01',
           value: 48)
     ], checkedAt: DateTime.parse('2026-10-27T08:00:00'));
-    expect(summary.countFor(HealthSource.huawei), 1);
-    expect(summary.supportedRecords, 1);
+    expect(summary.countFor(huawei), 1);
+    expect(summary.importedRecords, 1);
     expect(summary.otherHrvRecords, 0);
-    expect(summary.hrvExplanation(HealthSource.huawei), contains('No HRV'));
+    expect(summary.hrvExplanation(huawei), contains('No HRV'));
   });
 
-  test('keeps Huawei, Garmin and Apple Watch readings separate', () {
+  test('discovers Huawei, Garmin, Apple Watch and Da Ring dynamically', () {
     final samples = AppleHealthNormalizer.normalize([
       point(HealthDataType.SLEEP_ASLEEP, '2026-10-26T23:00:00',
           '2026-10-27T06:00:00',
@@ -98,16 +112,26 @@ void main() {
       point(HealthDataType.HEART_RATE_VARIABILITY_SDNN, '2026-10-27T07:00:00',
           '2026-10-27T07:00:01',
           source: 'Art’s Apple Watch', value: 57),
+      point(HealthDataType.SLEEP_ASLEEP, '2026-10-26T23:00:00',
+          '2026-10-27T06:30:00',
+          source: 'Da Ring', value: 1),
     ]);
-    expect(samples, hasLength(3));
-    expect(
-        samples
-            .singleWhere((s) => s.source == HealthSource.huawei)
-            .sleepMinutes,
-        420);
-    expect(samples.singleWhere((s) => s.source == HealthSource.garmin).hrv,
-        isNull);
-    expect(samples.singleWhere((s) => s.source == HealthSource.appleWatch).hrv,
+    expect(samples, hasLength(4));
+    expect(samples.singleWhere((s) => s.source == huawei).sleepMinutes, 420);
+    final garmin = HealthSource.fromProvenance(
+        name: 'Connect', id: 'com.garmin.connect.mobile')!;
+    expect(samples.singleWhere((s) => s.source == garmin).hrv, isNull);
+    expect(samples.singleWhere((s) => s.sourceName == 'Art’s Apple Watch').hrv,
         57);
+    expect(samples.singleWhere((s) => s.sourceName == 'Da Ring').sleepMinutes,
+        450);
+  });
+
+  test('Apple Health phone and watch names do not share one source key', () {
+    final phone =
+        HealthSource.fromProvenance(name: 'Health', id: 'com.apple.health');
+    final watch = HealthSource.fromProvenance(
+        name: 'Apple Watch', id: 'com.apple.health');
+    expect(phone, isNot(watch));
   });
 }

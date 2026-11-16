@@ -1,4 +1,5 @@
 import '../domain/athlete_data.dart';
+import '../domain/health_source.dart';
 
 /// Preserves previously imported days while refreshing the days returned by
 /// the current health query. A null in a partial response means unavailable
@@ -14,9 +15,10 @@ class WearableHistoryMerger {
 
     for (final sample in athlete.wearables) {
       if (source == null || sample.source == source) {
-        final key = '${sample.source}|${sample.date}';
-        history.update(key, (prior) => _combine(prior, sample),
-            ifAbsent: () => sample);
+        final current = source == null ? _migrateSource(sample) : sample;
+        final key = '${current.source}|${current.date}';
+        history.update(key, (prior) => _combine(prior, current),
+            ifAbsent: () => current);
       } else {
         otherSources.add(sample);
       }
@@ -51,4 +53,22 @@ class WearableHistoryMerger {
         heartRate: update.heartRate ?? prior.heartRate,
         workoutMinutes: update.workoutMinutes ?? prior.workoutMinutes,
       );
+
+  WearableSample _migrateSource(WearableSample sample) {
+    if (!HealthSource.isLegacy(sample.source)) return sample;
+    final key = HealthSource.fromProvenance(
+        name: sample.sourceName ?? '', id: sample.sourceId ?? '');
+    if (key == null) return sample;
+    return WearableSample(
+        date: sample.date,
+        source: key,
+        mode: sample.mode,
+        sourceId: sample.sourceId,
+        sourceName: sample.sourceName,
+        sleepMinutes: sample.sleepMinutes,
+        hrv: sample.hrv,
+        restingHr: sample.restingHr,
+        heartRate: sample.heartRate,
+        workoutMinutes: sample.workoutMinutes);
+  }
 }

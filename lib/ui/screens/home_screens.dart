@@ -357,7 +357,7 @@ class TodayScreen extends StatelessWidget {
         const SectionLabel('Connected data'),
         const SizedBox(height: 8),
         Text(
-            'Health: ${wearable == null ? 'Unavailable' : '${wearable.source} · ${wearable.mode}'}'),
+            'Health: ${wearable == null ? 'Unavailable' : '${data.activeHealthSourceLabel} · ${wearable.mode}'}'),
         Text('FightCamp: ${data.connections['fightcamp'] ?? 'Unavailable'}'),
         const SizedBox(height: 8),
         TextButton(
