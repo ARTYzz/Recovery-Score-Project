@@ -183,7 +183,7 @@ class _MorningScreenState extends State<MorningScreen> {
           title: const Text('New symptoms after head contact?',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
       const SizedBox(height: 25),
-      PrimaryButton('Save check-in', onPressed: () async {
+      PrimaryButton('Check-in', onPressed: () async {
         try {
           await widget.controller.saveMorning(MorningCheckIn(
               date: widget.controller.data!.currentDay,
