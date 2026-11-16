@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../app/boxer_controller.dart';
 import '../../data/athlete_backup.dart';
+import '../../domain/athlete_data.dart';
 import '../../domain/health_source.dart';
 import '../../domain/recovery_engine.dart';
 import '../components.dart';
@@ -20,7 +21,7 @@ class _CampScreenState extends State<CampScreen> {
     final data = widget.controller.data!;
     final camp = CampClock.fromProfile(data.profile, data.currentDate);
     final weights = data.checkins.where((e) => e.weight != null).toList();
-    final last = weights.isEmpty ? null : weights.last.weight;
+    final last = weights.isEmpty ? data.currentWeight : weights.last.weight;
     final recentAssessments =
         data.assessments.reversed.take(7).toList().reversed.toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -30,7 +31,7 @@ class _CampScreenState extends State<CampScreen> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Camp', style: Theme.of(context).textTheme.headlineLarge),
           Text(
-              '${CampClock.formatted(data.profile?.fightDate)} · ${data.profile?.officialWeighInWeight == null ? 'No weigh-in weight set' : '${data.profile!.officialWeighInWeight!.toStringAsFixed(1)} kg'}',
+              '${CampClock.formatted(data.profile?.fightDate)} · ${data.profile?.targetWeight == null ? 'No target weight set' : 'Target ${data.profile!.targetWeight!.toStringAsFixed(1)} kg'}',
               style: const TextStyle(color: AppColors.muted, fontSize: 13))
         ])),
         Container(
@@ -299,7 +300,18 @@ class SettingsScreen extends StatelessWidget {
         const SizedBox(height: 8),
         Text(data.profile?.name ?? 'Athlete',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        Text('Fight: ${CampClock.formatted(data.profile?.fightDate)}')
+        Text('Fight: ${CampClock.formatted(data.profile?.fightDate)}'),
+        Text(
+            'Current weight: ${data.currentWeight == null ? 'Unavailable' : '${data.currentWeight!.toStringAsFixed(1)} kg'}',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        Text(
+            'Height: ${data.profile?.heightCm == null ? 'Unavailable' : '${data.profile!.heightCm!.toStringAsFixed(1)} cm'} · Target: ${data.profile?.targetWeight == null ? 'Not set' : '${data.profile!.targetWeight!.toStringAsFixed(1)} kg'}',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        const SizedBox(height: 8),
+        TextButton.icon(
+            onPressed: () => controller.navigate('edit-profile'),
+            icon: const Icon(Icons.edit_outlined, size: 17),
+            label: const Text('Edit profile'))
       ])),
       const SizedBox(height: 15),
       AppCard(
@@ -371,6 +383,98 @@ class SettingsScreen extends StatelessWidget {
               style: TextStyle(color: AppColors.red)))
     ]);
   }
+}
+
+class EditProfileScreen extends StatefulWidget {
+  const EditProfileScreen(this.controller, {super.key});
+  final BoxerController controller;
+
+  @override
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  final name = TextEditingController();
+  final currentWeight = TextEditingController();
+  final heightCm = TextEditingController();
+  final targetWeight = TextEditingController();
+  DateTime? fightDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.controller.data!.profile!;
+    name.text = profile.name;
+    currentWeight.text = profile.currentWeight?.toString() ??
+        widget.controller.data!.latestCheckIn?.weight?.toString() ??
+        '';
+    heightCm.text = profile.heightCm?.toString() ?? '';
+    targetWeight.text = profile.targetWeight?.toString() ?? '';
+    fightDate = parsedDay(profile.fightDate);
+  }
+
+  @override
+  void dispose() {
+    name.dispose();
+    currentWeight.dispose();
+    heightCm.dispose();
+    targetWeight.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PageHeader(
+              title: 'Edit Profile',
+              onBack: () => widget.controller.navigate('settings')),
+          const SizedBox(height: 20),
+          const FieldTitle('Display name'),
+          TextField(
+              controller: name,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(hintText: 'Your name')),
+          const SizedBox(height: 20),
+          const FieldTitle('Next fight date'),
+          OutlinedButton.icon(
+              onPressed: () async {
+                final tomorrow = DateTime.now().add(const Duration(days: 1));
+                final selected = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        fightDate != null && fightDate!.isAfter(DateTime.now())
+                            ? fightDate!
+                            : tomorrow,
+                    firstDate: tomorrow,
+                    lastDate: DateTime.now().add(const Duration(days: 730)));
+                if (selected != null) setState(() => fightDate = selected);
+              },
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text(CampClock.formatted(
+                  fightDate == null ? null : localDay(fightDate)))),
+          const SizedBox(height: 20),
+          ProfileMeasurementsFields(
+              currentWeight: currentWeight,
+              heightCm: heightCm,
+              targetWeight: targetWeight),
+          const SizedBox(height: 20),
+          PrimaryButton('Save profile', onPressed: () async {
+            try {
+              await widget.controller.updateProfile(AthleteProfile(
+                  name: name.text.trim(),
+                  fightDate: fightDate == null ? '' : localDay(fightDate),
+                  currentWeight: profileMeasurement(
+                      currentWeight.text, 'current weight in kg'),
+                  heightCm: profileMeasurement(heightCm.text, 'height in cm'),
+                  targetWeight: profileMeasurement(
+                      targetWeight.text, 'target weight in kg')));
+            } catch (e) {
+              widget.controller.showError(e);
+            }
+          }),
+        ],
+      );
 }
 
 class ConnectionsScreen extends StatelessWidget {

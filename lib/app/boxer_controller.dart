@@ -80,21 +80,21 @@ class BoxerController extends ChangeNotifier {
       required String fightDate,
       required String passphrase,
       required bool privacyAccepted,
-      double? officialWeight}) async {
-    if (name.trim().isEmpty) {
-      throw const FormatException('Enter a display name.');
-    }
-    if (!CampClock.isFuture(fightDate)) {
-      throw const FormatException('Choose a fight date in the future.');
-    }
+      double? currentWeight,
+      double? heightCm,
+      double? targetWeight}) async {
+    final profile = AthleteProfile(
+        name: name.trim(),
+        fightDate: fightDate,
+        currentWeight: currentWeight,
+        heightCm: heightCm,
+        targetWeight: targetWeight);
+    _validateProfile(profile);
     if (!privacyAccepted) {
       throw const FormatException('Accept the Privacy Notice to continue.');
     }
     final athlete = AthleteData(
-        profile: AthleteProfile(
-            name: name.trim(),
-            fightDate: fightDate,
-            officialWeighInWeight: officialWeight),
+        profile: profile,
         privacyAcceptedAt: DateTime.now().toIso8601String(),
         onboardingStage: 'sources');
     await vault.create(passphrase, athlete);
@@ -166,6 +166,9 @@ class BoxerController extends ChangeNotifier {
   Future<void> saveMorning(MorningCheckIn check) async {
     final athlete = data!;
     athlete.saveMorning(check);
+    if (check.date == athlete.currentDay && check.weight != null) {
+      athlete.profile?.currentWeight = check.weight;
+    }
     final currentSamples = athlete.activeWearables
         .where((sample) => sample.date == check.date)
         .toList();
@@ -263,11 +266,32 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> updateProfile(AthleteProfile profile) async {
+    _validateProfile(profile);
+    data!.profile = profile;
+    await _persistAndGo('settings');
+  }
+
+  void _validateProfile(AthleteProfile profile) {
+    if (profile.name.trim().isEmpty) {
+      throw const FormatException('Enter a display name.');
+    }
     if (!CampClock.isFuture(profile.fightDate)) {
       throw const FormatException('Choose a fight date in the future.');
     }
-    data!.profile = profile;
-    await _persistAndGo('camp');
+    if (profile.currentWeight == null ||
+        !profile.currentWeight!.isFinite ||
+        profile.currentWeight! <= 0) {
+      throw const FormatException('Enter a valid current weight in kg.');
+    }
+    if (profile.heightCm == null ||
+        !profile.heightCm!.isFinite ||
+        profile.heightCm! <= 0) {
+      throw const FormatException('Enter a valid height in cm.');
+    }
+    if (profile.targetWeight != null &&
+        (!profile.targetWeight!.isFinite || profile.targetWeight! <= 0)) {
+      throw const FormatException('Enter a valid target weight in kg.');
+    }
   }
 
   Future<void> connectAppleHealth() async {

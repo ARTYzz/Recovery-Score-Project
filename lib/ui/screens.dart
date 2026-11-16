@@ -37,6 +37,7 @@ class AppScreens extends StatelessWidget {
       'camp' => CampScreen(controller),
       'trends' => TrendsScreen(controller),
       'settings' => SettingsScreen(controller),
+      'edit-profile' => EditProfileScreen(controller),
       'connections' => ConnectionsScreen(controller),
       _ => TodayScreen(controller),
     };
@@ -44,7 +45,8 @@ class AppScreens extends StatelessWidget {
         route != 'morning' &&
         route != 'tonight' &&
         route != 'brain' &&
-        route != 'feedback';
+        route != 'feedback' &&
+        route != 'edit-profile';
     return Scaffold(
       body: SafeArea(
           child: Column(children: [

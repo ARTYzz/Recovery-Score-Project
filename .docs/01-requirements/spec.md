@@ -991,6 +991,13 @@ The report is intended to provide useful historical context for the athlete's ne
 
 The system SHALL allow the athlete to create and manage a profile.
 
+Profile setup SHALL collect current weight (kg) and height (cm), and MAY
+collect an optional target weight for the official weigh-in. The athlete SHALL
+be able to edit these values, display name, and upcoming fight date later.
+Morning weight entries SHALL update the displayed current weight. Target
+weight SHALL be used for monitoring only and MUST NOT generate a weight-cut,
+dehydration, or deadline plan.
+
 **Backlog:** US-01
 
 ---

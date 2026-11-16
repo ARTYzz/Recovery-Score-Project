@@ -254,3 +254,57 @@ class FieldTitle extends StatelessWidget {
         const SizedBox(height: 10)
       ]);
 }
+
+/// Shared profile fields for setup and later edits. A target is optional and
+/// recorded for monitoring; the app does not calculate a weight-cut plan.
+class ProfileMeasurementsFields extends StatelessWidget {
+  const ProfileMeasurementsFields(
+      {super.key,
+      required this.currentWeight,
+      required this.heightCm,
+      required this.targetWeight});
+
+  final TextEditingController currentWeight;
+  final TextEditingController heightCm;
+  final TextEditingController targetWeight;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FieldTitle('Current weight (kg)',
+              helper: 'Updated when you log a new morning weight.'),
+          TextField(
+              controller: currentWeight,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(hintText: 'e.g. 72.5')),
+          const SizedBox(height: 20),
+          const FieldTitle('Height (cm)'),
+          TextField(
+              controller: heightCm,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(hintText: 'e.g. 175')),
+          const SizedBox(height: 20),
+          const FieldTitle('Target weight (kg)',
+              helper:
+                  'Optional official weigh-in weight. Used for monitoring, not a weight-cut plan.'),
+          TextField(
+              controller: targetWeight,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(hintText: 'Optional')),
+        ],
+      );
+}
+
+double? profileMeasurement(String text, String label) {
+  final value = text.trim();
+  if (value.isEmpty) return null;
+  final parsed = double.tryParse(value.replaceAll(',', '.'));
+  if (parsed == null || !parsed.isFinite || parsed <= 0) {
+    throw FormatException('Enter a valid $label.');
+  }
+  return parsed;
+}

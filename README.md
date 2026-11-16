@@ -12,6 +12,8 @@ Each HealthKit sync reads a 14-day window and merges returned watch days into en
 
 On a Mac with Xcode and a connected iPhone, run `flutter pub get`, open `ios/Runner.xcworkspace` to select a signing team, and run `flutter run -d DEVICE_ID`. Create a real athlete profile, grant Apple Health read access during onboarding (or later in Settings → Connected Sources), complete the morning check-in, then view Today. The app reads again on unlock, when returning to the app, or when **Sync now** is tapped. It does not currently receive background HealthKit updates. Revoke platform read permission in the iPhone Health app; Disconnect in Boxer Recovery clears imported local records.
 
+Create Profile asks for current weight (kg), height (cm), and an optional target weight for the official weigh-in. Settings → Edit Profile lets the athlete change these values, display name, and fight date. A new morning check-in updates the profile's current weight. Old saved official weigh-in weights load as target weights. Target weight is shown for monitoring only; the app does not calculate a weight-cut plan.
+
 On Windows, run from the project root:
 
 ```powershell

@@ -16,7 +16,9 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   final name = TextEditingController();
   final pass = TextEditingController();
-  final weight = TextEditingController();
+  final currentWeight = TextEditingController();
+  final heightCm = TextEditingController();
+  final targetWeight = TextEditingController();
   DateTime? fightDate;
   bool accepted = false;
 
@@ -91,7 +93,9 @@ class _SetupScreenState extends State<SetupScreen> {
   void dispose() {
     name.dispose();
     pass.dispose();
-    weight.dispose();
+    currentWeight.dispose();
+    heightCm.dispose();
+    targetWeight.dispose();
     super.dispose();
   }
 
@@ -129,13 +133,10 @@ class _SetupScreenState extends State<SetupScreen> {
                 ? 'Choose date'
                 : CampClock.formatted(fightDate!.toIso8601String()))),
         const SizedBox(height: 20),
-        const FieldTitle('Official weigh-in weight (kg)',
-            helper:
-                'Optional. Used only for weight trend and safety monitoring.'),
-        TextField(
-            controller: weight,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(hintText: 'Optional')),
+        ProfileMeasurementsFields(
+            currentWeight: currentWeight,
+            heightCm: heightCm,
+            targetWeight: targetWeight),
         const SizedBox(height: 20),
         const FieldTitle('Local passphrase'),
         TextField(
@@ -161,7 +162,11 @@ class _SetupScreenState extends State<SetupScreen> {
                     : '${fightDate!.year}-${fightDate!.month.toString().padLeft(2, '0')}-${fightDate!.day.toString().padLeft(2, '0')}',
                 passphrase: pass.text,
                 privacyAccepted: accepted,
-                officialWeight: double.tryParse(weight.text));
+                currentWeight: profileMeasurement(
+                    currentWeight.text, 'current weight in kg'),
+                heightCm: profileMeasurement(heightCm.text, 'height in cm'),
+                targetWeight: profileMeasurement(
+                    targetWeight.text, 'target weight in kg'));
           } catch (e) {
             widget.controller.showError(e);
           }

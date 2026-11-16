@@ -16,21 +16,30 @@ class AthleteProfile {
   AthleteProfile(
       {required this.name,
       required this.fightDate,
-      this.officialWeighInWeight});
+      this.currentWeight,
+      this.heightCm,
+      this.targetWeight});
   String name;
   String fightDate;
-  double? officialWeighInWeight;
+  double? currentWeight;
+  double? heightCm;
+  double? targetWeight;
 
   factory AthleteProfile.fromJson(Map<String, dynamic> json) => AthleteProfile(
         name: json['name'] as String? ?? '',
         fightDate: json['fightDate'] as String? ?? '',
-        officialWeighInWeight:
-            numberOrNull(json['officialWeighInWeight'] ?? json['fightWeight']),
+        currentWeight: numberOrNull(json['currentWeight']),
+        heightCm: numberOrNull(json['heightCm']),
+        targetWeight: numberOrNull(json['targetWeight'] ??
+            json['officialWeighInWeight'] ??
+            json['fightWeight']),
       );
   Map<String, dynamic> toJson() => {
         'name': name,
         'fightDate': fightDate,
-        'officialWeighInWeight': officialWeighInWeight,
+        'currentWeight': currentWeight,
+        'heightCm': heightCm,
+        'targetWeight': targetWeight,
       };
 }
 
@@ -431,6 +440,7 @@ class AthleteData {
   WearableSample? get latestSleepSample =>
       latestMetricSample((sample) => sample.sleepMinutes);
   MorningCheckIn? get latestCheckIn => checkins.isEmpty ? null : checkins.last;
+  double? get currentWeight => profile?.currentWeight ?? latestCheckIn?.weight;
   TrainingSession? get latestTraining =>
       sessions.isEmpty ? null : sessions.last;
   NutritionCheck? get latestNutrition =>
