@@ -70,19 +70,28 @@ class BoxerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void refreshDailyGate() {
+  Future<void> refreshDailyGate() async {
+    if (data?.profile?.archiveExpiredFight() == true) {
+      try {
+        await vault.save();
+        notifyListeners();
+      } catch (e) {
+        showError(e);
+      }
+    }
     if (data?.morningDue == true) navigate('morning');
     if (data?.connections['apple'] == 'CONNECTED') syncAppleHealth();
   }
 
   Future<void> createProfile(
       {required String name,
-      required String fightDate,
+      String? fightDate,
       required String passphrase,
       required bool privacyAccepted,
       double? currentWeight,
       double? heightCm,
       double? targetWeight}) async {
+    if (fightDate?.trim().isEmpty == true) fightDate = null;
     final profile = AthleteProfile(
         name: name.trim(),
         fightDate: fightDate,
@@ -104,6 +113,7 @@ class BoxerController extends ChangeNotifier {
 
   Future<void> unlock(String passphrase) async {
     data = await vault.unlock(passphrase);
+    data!.profile?.archiveExpiredFight();
     if (data!.onboardingStage == 'connect') {
       data!.onboardingStage = 'ready';
     }
@@ -266,7 +276,12 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> updateProfile(AthleteProfile profile) async {
+    if (profile.fightDate?.trim().isEmpty == true) profile.fightDate = null;
     _validateProfile(profile);
+    final history = data!.profile?.pastFightPlans ?? [];
+    if (profile.pastFightPlans.isEmpty && history.isNotEmpty) {
+      profile.pastFightPlans.addAll(history);
+    }
     data!.profile = profile;
     await _persistAndGo('settings');
   }
@@ -275,7 +290,9 @@ class BoxerController extends ChangeNotifier {
     if (profile.name.trim().isEmpty) {
       throw const FormatException('Enter a display name.');
     }
-    if (!CampClock.isFuture(profile.fightDate)) {
+    if (profile.fightDate != null &&
+        profile.fightDate!.isNotEmpty &&
+        !CampClock.isFuture(profile.fightDate)) {
       throw const FormatException('Choose a fight date in the future.');
     }
     if (profile.currentWeight == null ||

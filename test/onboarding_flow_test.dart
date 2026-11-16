@@ -1,6 +1,7 @@
 import 'package:boxer_recovery/app/boxer_controller.dart';
 import 'package:boxer_recovery/data/athlete_vault.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
+import 'package:boxer_recovery/domain/recovery_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -183,5 +184,100 @@ void main() {
         currentWeight: 74,
         heightCm: 175);
     expect(app.data!.profile!.targetWeight, isNull);
+  });
+
+  test('athlete can start without a fight date and schedule one later',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final app = BoxerController();
+    await app.initialize();
+    await app.createProfile(
+        name: 'Boxer',
+        passphrase: 'test-passphrase',
+        privacyAccepted: true,
+        currentWeight: 74,
+        heightCm: 175);
+    expect(app.data!.profile!.fightDate, isNull);
+    expect(CampClock.fromProfile(app.data!.profile).phase, 'NO_CAMP');
+    await app.continueFromHealthPreview();
+    await app.start();
+    final nextFight = localDay(DateTime.now().add(const Duration(days: 30)));
+    await app.updateProfile(AthleteProfile(
+        name: 'Boxer', fightDate: nextFight, currentWeight: 74, heightCm: 175));
+    final reopened = await AthleteVault().unlock('test-passphrase');
+    expect(reopened.profile!.fightDate, nextFight);
+  });
+
+  test('fight stays scheduled on fight day and expires the following day', () {
+    final profile = AthleteProfile(
+        name: 'Boxer',
+        fightDate: '2026-11-15',
+        currentWeight: 74,
+        heightCm: 175,
+        targetWeight: 72);
+    expect(
+        profile.archiveExpiredFight(DateTime(2026, 11, 15, 23, 59)), isFalse);
+    expect(CampClock.fromProfile(profile, DateTime(2026, 11, 15)).daysOut, 0);
+    expect(profile.archiveExpiredFight(DateTime(2026, 11, 16)), isTrue);
+    expect(profile.fightDate, isNull);
+    expect(profile.targetWeight, isNull);
+    expect(profile.pastFightPlans.single.date, '2026-11-15');
+    expect(profile.pastFightPlans.single.targetWeight, 72);
+    expect(profile.archiveExpiredFight(DateTime(2026, 11, 17)), isFalse);
+    expect(profile.pastFightPlans, hasLength(1));
+    expect(CampClock.fromProfile(profile, DateTime(2026, 11, 16)).phase,
+        'NO_CAMP');
+  });
+
+  test('expired fight is archived and persisted when account unlocks',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final past = localDay(DateTime.now().subtract(const Duration(days: 1)));
+    final athlete = AthleteData(
+        profile: AthleteProfile(
+            name: 'Boxer',
+            fightDate: past,
+            currentWeight: 74,
+            heightCm: 175,
+            targetWeight: 72),
+        onboardingStage: 'complete');
+    await AthleteVault().create('test-passphrase', athlete);
+    final app = BoxerController();
+    await app.initialize();
+    await app.unlock('test-passphrase');
+    expect(app.data!.profile!.fightDate, isNull);
+    final reopened = await AthleteVault().unlock('test-passphrase');
+    expect(reopened.profile!.fightDate, isNull);
+    expect(reopened.profile!.pastFightPlans.single.date, past);
+    final next = localDay(DateTime.now().add(const Duration(days: 30)));
+    await app.updateProfile(AthleteProfile(
+        name: 'Boxer',
+        fightDate: next,
+        currentWeight: 74,
+        heightCm: 175,
+        targetWeight: 73));
+    final withNextFight = await AthleteVault().unlock('test-passphrase');
+    expect(withNextFight.profile!.fightDate, next);
+    expect(withNextFight.profile!.pastFightPlans.single.date, past);
+  });
+
+  test('returning to the app also persists fight rollover', () async {
+    SharedPreferences.setMockInitialValues({});
+    final past = localDay(DateTime.now().subtract(const Duration(days: 1)));
+    final athlete = AthleteData(
+        profile: AthleteProfile(
+            name: 'Boxer', fightDate: past, currentWeight: 74, heightCm: 175),
+        onboardingStage: 'complete');
+    athlete.saveMorning(
+        MorningCheckIn(date: localDay(), weight: 74, urine: 2, mood: 'OK'));
+    final vault = AthleteVault();
+    await vault.create('test-passphrase', athlete);
+    final app = BoxerController(vault: vault)
+      ..data = athlete
+      ..busy = false;
+    await app.refreshDailyGate();
+    final reopened = await AthleteVault().unlock('test-passphrase');
+    expect(reopened.profile!.fightDate, isNull);
+    expect(reopened.profile!.pastFightPlans.single.date, past);
   });
 }

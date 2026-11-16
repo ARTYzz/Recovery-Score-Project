@@ -15,24 +15,45 @@ int? intOrNull(Object? value) => value is num ? value.toInt() : null;
 class AthleteProfile {
   AthleteProfile(
       {required this.name,
-      required this.fightDate,
+      this.fightDate,
       this.currentWeight,
       this.heightCm,
-      this.targetWeight});
+      this.targetWeight,
+      List<PastFightPlan>? pastFightPlans})
+      : pastFightPlans = pastFightPlans ?? [];
   String name;
-  String fightDate;
+  String? fightDate;
   double? currentWeight;
   double? heightCm;
   double? targetWeight;
+  final List<PastFightPlan> pastFightPlans;
+
+  /// Archive a scheduled fight only after its local calendar day has passed.
+  bool archiveExpiredFight([DateTime? at]) {
+    final scheduled = parsedDay(fightDate);
+    if (scheduled == null) return false;
+    final today = localDay(at);
+    if (fightDate!.compareTo(today) >= 0) return false;
+    pastFightPlans
+        .add(PastFightPlan(date: fightDate!, targetWeight: targetWeight));
+    fightDate = null;
+    targetWeight = null;
+    return true;
+  }
 
   factory AthleteProfile.fromJson(Map<String, dynamic> json) => AthleteProfile(
         name: json['name'] as String? ?? '',
-        fightDate: json['fightDate'] as String? ?? '',
+        fightDate: json['fightDate'] as String?,
         currentWeight: numberOrNull(json['currentWeight']),
         heightCm: numberOrNull(json['heightCm']),
         targetWeight: numberOrNull(json['targetWeight'] ??
             json['officialWeighInWeight'] ??
             json['fightWeight']),
+        pastFightPlans: (json['pastFightPlans'] as List? ?? [])
+            .whereType<Map>()
+            .map((item) =>
+                PastFightPlan.fromJson(Map<String, dynamic>.from(item)))
+            .toList(),
       );
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -40,7 +61,22 @@ class AthleteProfile {
         'currentWeight': currentWeight,
         'heightCm': heightCm,
         'targetWeight': targetWeight,
+        'pastFightPlans': pastFightPlans.map((item) => item.toJson()).toList(),
       };
+}
+
+/// A past scheduled date is retained as history without claiming the bout
+/// took place or that the official weigh-in target was achieved.
+class PastFightPlan {
+  const PastFightPlan({required this.date, this.targetWeight});
+  final String date;
+  final double? targetWeight;
+
+  factory PastFightPlan.fromJson(Map<String, dynamic> json) => PastFightPlan(
+      date: json['date'] as String? ?? '',
+      targetWeight: numberOrNull(json['targetWeight']));
+
+  Map<String, dynamic> toJson() => {'date': date, 'targetWeight': targetWeight};
 }
 
 class WearableSample {

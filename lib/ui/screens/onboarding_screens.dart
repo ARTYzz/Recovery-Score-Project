@@ -118,7 +118,8 @@ class _SetupScreenState extends State<SetupScreen> {
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(hintText: 'Your name')),
         const SizedBox(height: 20),
-        const FieldTitle('Next fight date'),
+        const FieldTitle('Next fight date',
+            helper: 'Optional. Set it later when a fight is scheduled.'),
         OutlinedButton.icon(
             onPressed: () async {
               final result = await showDatePicker(
@@ -130,7 +131,7 @@ class _SetupScreenState extends State<SetupScreen> {
             },
             icon: const Icon(Icons.calendar_today_outlined),
             label: Text(fightDate == null
-                ? 'Choose date'
+                ? 'No fight scheduled · Choose date'
                 : CampClock.formatted(fightDate!.toIso8601String()))),
         const SizedBox(height: 20),
         ProfileMeasurementsFields(
@@ -158,7 +159,7 @@ class _SetupScreenState extends State<SetupScreen> {
             await widget.controller.createProfile(
                 name: name.text,
                 fightDate: fightDate == null
-                    ? ''
+                    ? null
                     : '${fightDate!.year}-${fightDate!.month.toString().padLeft(2, '0')}-${fightDate!.day.toString().padLeft(2, '0')}',
                 passphrase: pass.text,
                 privacyAccepted: accepted,
@@ -320,18 +321,26 @@ class BaselineIntroScreen extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionLabel('YOU ARE READY'),
       const SizedBox(height: 10),
-      Text('Your camp starts here.',
+      Text(
+          camp.daysOut == null
+              ? 'Your recovery starts here.'
+              : 'Your camp starts here.',
           style: Theme.of(context).textTheme.headlineLarge),
       const SizedBox(height: 20),
       AppCard(
           color: const Color(0xfff3fbd9),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${camp.daysOut ?? '—'} days out',
+            Text(
+                camp.daysOut == null
+                    ? 'No fight scheduled'
+                    : '${camp.daysOut} days out',
                 style:
                     const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
             Text(
-                '${camp.phase.replaceAll('_', ' ')} · ${CampClock.formatted(controller.data?.profile?.fightDate)}',
+                camp.daysOut == null
+                    ? 'Set your next fight date later in Settings.'
+                    : '${camp.phase.replaceAll('_', ' ')} · ${CampClock.formatted(controller.data?.profile?.fightDate)}',
                 style: const TextStyle(color: AppColors.muted))
           ])),
       const SizedBox(height: 16),

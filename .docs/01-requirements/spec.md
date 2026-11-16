@@ -1005,6 +1005,12 @@ dehydration, or deadline plan.
 ## FR-02 — Fight Camp
 
 The system SHALL allow the athlete to configure an upcoming fight date and derive the current camp phase.
+The fight date MAY be left unset during onboarding. After the local calendar
+day of a scheduled fight has passed, the app SHALL archive the scheduled date
+and clear the upcoming fight date and its weigh-in target. Recovery tracking
+and check-ins SHALL continue without a scheduled fight. The athlete MAY set a
+new fight date later in Edit Profile. No camp countdown or phase SHALL be shown
+while the upcoming fight date is unset.
 
 **Backlog:** US-02, US-03
 

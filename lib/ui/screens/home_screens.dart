@@ -49,7 +49,9 @@ class TodayScreen extends StatelessWidget {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, style: Theme.of(context).textTheme.headlineLarge),
           Text(
-              '${result.camp.daysOut ?? '—'} days out · ${result.camp.phase.replaceAll('_', ' ').toLowerCase()}',
+              result.camp.daysOut == null
+                  ? 'No fight scheduled · Recovery tracking continues'
+                  : '${result.camp.daysOut} days out · ${result.camp.phase.replaceAll('_', ' ').toLowerCase()}',
               style: const TextStyle(color: AppColors.muted)),
           if (todayTraining.isNotEmpty)
             Text(
@@ -65,19 +67,26 @@ class TodayScreen extends StatelessWidget {
             style: IconButton.styleFrom(backgroundColor: Colors.white))
       ]),
       const SizedBox(height: 12),
-      ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-              value: result.camp.daysOut == null
-                  ? 0
-                  : (1 - result.camp.daysOut!.clamp(0, 56) / 56),
-              minHeight: 6,
-              color: AppColors.lime,
-              backgroundColor: AppColors.line)),
-      const SizedBox(height: 7),
-      const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [SectionLabel('Camp start'), SectionLabel('Fight night')]),
+      if (result.camp.daysOut != null) ...[
+        ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+                value: (1 - result.camp.daysOut!.clamp(0, 56) / 56),
+                minHeight: 6,
+                color: AppColors.lime,
+                backgroundColor: AppColors.line)),
+        const SizedBox(height: 7),
+        const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          SectionLabel('Camp start'),
+          SectionLabel('Fight night')
+        ]),
+      ] else
+        Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+                onPressed: () => controller.navigate('edit-profile'),
+                icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                label: const Text('Set next fight date'))),
       const SizedBox(height: 10),
       Text(
           "●  TODAY'S BRAKE · ${(result.limiter == null ? 'LEARNING BASELINE' : domainLabels[result.limiter]!).toUpperCase()}",

@@ -38,37 +38,68 @@ class _CampScreenState extends State<CampScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
                 color: AppColors.ink, borderRadius: BorderRadius.circular(20)),
-            child: Text('${camp.daysOut ?? '—'} days out',
+            child: Text(
+                camp.daysOut == null
+                    ? 'No fight set'
+                    : '${camp.daysOut} days out',
                 style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     fontSize: 12)))
       ]),
       const SizedBox(height: 25),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        for (final phase in ['BASE', 'BUILD', 'PEAK', 'TAPER'])
-          Text(phase,
-              style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: phase == camp.phase ? AppColors.ink : AppColors.muted))
-      ]),
-      const SizedBox(height: 6),
-      Row(children: [
-        for (final phase in ['BASE', 'BUILD', 'PEAK', 'TAPER'])
-          Expanded(
-              child: Container(
-                  height: 9,
-                  margin: const EdgeInsets.only(right: 3),
-                  decoration: BoxDecoration(
-                      color:
-                          phase == camp.phase ? AppColors.lime : AppColors.line,
-                      borderRadius: BorderRadius.circular(3))))
-      ]),
-      const SizedBox(height: 12),
-      Text(
-          'Current phase: ${camp.phase.replaceAll('_', ' ')}. Recovery guidance uses the data available today.',
-          style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+      if (camp.daysOut == null) ...[
+        AppCard(
+            color: const Color(0xfff3fbd9),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('No upcoming fight scheduled',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 7),
+              const Text(
+                  'Recovery tracking continues. Add a fight date when your next bout is confirmed.',
+                  style: TextStyle(color: AppColors.muted)),
+              if (data.profile?.pastFightPlans.isNotEmpty == true) ...[
+                const SizedBox(height: 8),
+                Text(
+                    'Last scheduled date: ${CampClock.formatted(data.profile!.pastFightPlans.last.date)}',
+                    style:
+                        const TextStyle(color: AppColors.muted, fontSize: 12)),
+              ],
+              const SizedBox(height: 10),
+              TextButton.icon(
+                  onPressed: () => widget.controller.navigate('edit-profile'),
+                  icon: const Icon(Icons.calendar_today_outlined),
+                  label: const Text('Set next fight date')),
+            ])),
+      ] else ...[
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          for (final phase in ['BASE', 'BUILD', 'PEAK', 'TAPER'])
+            Text(phase,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color:
+                        phase == camp.phase ? AppColors.ink : AppColors.muted))
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          for (final phase in ['BASE', 'BUILD', 'PEAK', 'TAPER'])
+            Expanded(
+                child: Container(
+                    height: 9,
+                    margin: const EdgeInsets.only(right: 3),
+                    decoration: BoxDecoration(
+                        color: phase == camp.phase
+                            ? AppColors.lime
+                            : AppColors.line,
+                        borderRadius: BorderRadius.circular(3))))
+        ]),
+        const SizedBox(height: 12),
+        Text(
+            'Current phase: ${camp.phase.replaceAll('_', ' ')}. Recovery guidance uses the data available today.',
+            style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+      ],
       const SizedBox(height: 19),
       AppCard(
           child:
@@ -88,10 +119,10 @@ class _CampScreenState extends State<CampScreen> {
                 painter: _TrendPainter(weights.map((e) => e.weight!).toList(),
                     const Color(0xff5576df)))),
         const SizedBox(height: 8),
-        const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('camp start',
-              style: TextStyle(color: AppColors.muted, fontSize: 10)),
-          Text('today',
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(camp.daysOut == null ? 'first log' : 'camp start',
+              style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+          const Text('today',
               style: TextStyle(
                   color: AppColors.teal,
                   fontSize: 10,
@@ -436,7 +467,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(hintText: 'Your name')),
           const SizedBox(height: 20),
-          const FieldTitle('Next fight date'),
+          const FieldTitle('Next fight date',
+              helper: 'Optional. Set it when your next fight is confirmed.'),
           OutlinedButton.icon(
               onPressed: () async {
                 final tomorrow = DateTime.now().add(const Duration(days: 1));
@@ -451,8 +483,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 if (selected != null) setState(() => fightDate = selected);
               },
               icon: const Icon(Icons.calendar_today_outlined),
-              label: Text(CampClock.formatted(
-                  fightDate == null ? null : localDay(fightDate)))),
+              label: Text(fightDate == null
+                  ? 'No fight scheduled · Choose date'
+                  : CampClock.formatted(localDay(fightDate)))),
+          if (fightDate != null)
+            TextButton(
+                onPressed: () => setState(() {
+                      fightDate = null;
+                      targetWeight.clear();
+                    }),
+                child: const Text('Remove scheduled fight')),
           const SizedBox(height: 20),
           ProfileMeasurementsFields(
               currentWeight: currentWeight,
@@ -463,7 +503,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             try {
               await widget.controller.updateProfile(AthleteProfile(
                   name: name.text.trim(),
-                  fightDate: fightDate == null ? '' : localDay(fightDate),
+                  fightDate: fightDate == null ? null : localDay(fightDate),
                   currentWeight: profileMeasurement(
                       currentWeight.text, 'current weight in kg'),
                   heightCm: profileMeasurement(heightCm.text, 'height in cm'),

@@ -26,22 +26,21 @@ class CampClock {
     final now = at ?? DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final days = fight.difference(today).inDays;
+    if (days < 0) return const CampState(null, 'NO_CAMP');
     return CampState(
         days,
-        days < 0
-            ? 'POST_FIGHT'
-            : days <= 7
-                ? 'FIGHT_WEEK'
-                : days <= 14
-                    ? 'TAPER'
-                    : days <= 28
-                        ? 'PEAK'
-                        : days <= 56
-                            ? 'BUILD'
-                            : 'BASE');
+        days <= 7
+            ? 'FIGHT_WEEK'
+            : days <= 14
+                ? 'TAPER'
+                : days <= 28
+                    ? 'PEAK'
+                    : days <= 56
+                        ? 'BUILD'
+                        : 'BASE');
   }
 
-  static bool isFuture(String value, [DateTime? at]) {
+  static bool isFuture(String? value, [DateTime? at]) {
     final selected = parsedDay(value);
     if (selected == null || localDay(selected) != value) return false;
     final now = at ?? DateTime.now();
@@ -50,7 +49,7 @@ class CampClock {
 
   static String formatted(String? value) {
     final date = parsedDay(value);
-    if (date == null) return 'No fight date';
+    if (date == null) return 'No fight scheduled';
     const months = [
       'Jan',
       'Feb',

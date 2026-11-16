@@ -14,6 +14,8 @@ On a Mac with Xcode and a connected iPhone, run `flutter pub get`, open `ios/Run
 
 Create Profile asks for current weight (kg), height (cm), and an optional target weight for the official weigh-in. Settings → Edit Profile lets the athlete change these values, display name, and fight date. A new morning check-in updates the profile's current weight. Old saved official weigh-in weights load as target weights. Target weight is shown for monitoring only; the app does not calculate a weight-cut plan.
 
+The next fight date is optional. When the scheduled day has passed, the app archives that planned date and weigh-in target, clears the upcoming fight and target, and continues recovery tracking without a camp countdown. The rollover is persisted when the athlete unlocks or returns to the app. A new date can be set later in Settings → Edit Profile.
+
 On Windows, run from the project root:
 
 ```powershell
