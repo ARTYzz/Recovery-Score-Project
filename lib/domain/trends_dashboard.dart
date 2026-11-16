@@ -120,7 +120,7 @@ class TrendsDashboard {
     final rhr = <String, double>{};
     final heartRate = <String, double>{};
     final workout = <String, double>{};
-    for (final sample in data.wearables) {
+    for (final sample in data.activeWearables) {
       if (sample.sleepMinutes != null) {
         sleep[sample.date] = sample.sleepMinutes!.toDouble() / 60;
       }

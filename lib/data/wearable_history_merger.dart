@@ -4,25 +4,27 @@ import '../domain/athlete_data.dart';
 /// the current health query. A null in a partial response means unavailable
 /// in that response, not that an earlier reading was zero or deleted.
 class WearableHistoryMerger {
-  const WearableHistoryMerger(this.source);
+  const WearableHistoryMerger([this.source]);
 
-  final String source;
+  final String? source;
 
   void merge(AthleteData athlete, Iterable<WearableSample> updates) {
     final history = <String, WearableSample>{};
     final otherSources = <WearableSample>[];
 
     for (final sample in athlete.wearables) {
-      if (sample.source == source) {
-        history.update(sample.date, (prior) => _combine(prior, sample),
+      if (source == null || sample.source == source) {
+        final key = '${sample.source}|${sample.date}';
+        history.update(key, (prior) => _combine(prior, sample),
             ifAbsent: () => sample);
       } else {
         otherSources.add(sample);
       }
     }
     for (final sample in updates) {
-      if (sample.source != source) continue;
-      history.update(sample.date, (prior) => _combine(prior, sample),
+      if (source != null && sample.source != source) continue;
+      final key = '${sample.source}|${sample.date}';
+      history.update(key, (prior) => _combine(prior, sample),
           ifAbsent: () => sample);
     }
 
@@ -39,8 +41,10 @@ class WearableHistoryMerger {
   WearableSample _combine(WearableSample prior, WearableSample update) =>
       WearableSample(
         date: update.date,
-        source: source,
+        source: update.source,
         mode: update.mode,
+        sourceId: update.sourceId ?? prior.sourceId,
+        sourceName: update.sourceName ?? prior.sourceName,
         sleepMinutes: update.sleepMinutes ?? prior.sleepMinutes,
         hrv: update.hrv ?? prior.hrv,
         restingHr: update.restingHr ?? prior.restingHr,

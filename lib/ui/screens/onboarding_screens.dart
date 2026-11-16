@@ -234,7 +234,7 @@ class HealthPreviewScreen extends StatelessWidget {
           style: Theme.of(context).textTheme.headlineLarge),
       const SizedBox(height: 8),
       const Text(
-          'On iPhone, allow read-only Apple Health access to import records shared by Huawei Health. Missing metrics stay Unavailable.',
+          'On iPhone, allow read-only Apple Health access to import records from Huawei, Garmin or Apple Watch. Missing metrics stay Unavailable.',
           style: TextStyle(color: AppColors.muted)),
       const SizedBox(height: 20),
       AppCard(
@@ -243,7 +243,7 @@ class HealthPreviewScreen extends StatelessWidget {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
                 connected
-                    ? 'HUAWEI VIA APPLE HEALTH · LIVE'
+                    ? '${data?.activeHealthSource?.toUpperCase() ?? 'APPLE HEALTH'} · LIVE'
                     : 'NO HEALTH DATA CONNECTED',
                 style: TextStyle(
                     fontSize: 11,
@@ -266,18 +266,18 @@ class HealthPreviewScreen extends StatelessWidget {
           Icons.favorite_outline,
           'Apple Health',
           connected
-              ? 'Huawei records imported from this iPhone'
+              ? '${data?.activeHealthSource ?? 'Watch'} records imported from this iPhone'
               : 'Not connected · available on iPhone'),
       const SizedBox(height: 9),
       _sourceCard(Icons.sports_mma_outlined, 'FightCamp',
           'Synthetic punch history for this prototype only'),
       const SizedBox(height: 16),
-      if (controller.huaweiHealth.supported && !connected) ...[
+      if (controller.appleHealth.supported && !connected) ...[
         PrimaryButton('Connect Apple Health',
-            onPressed: controller.connectHuaweiHealth),
+            onPressed: controller.connectAppleHealth),
         const SizedBox(height: 12),
       ],
-      if (!controller.huaweiHealth.supported)
+      if (!controller.appleHealth.supported)
         const Text(
             'Live Apple Health reading requires an iPhone. You can continue with unavailable metrics.',
             style: TextStyle(color: AppColors.muted, fontSize: 12)),

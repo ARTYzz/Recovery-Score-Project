@@ -1,9 +1,12 @@
-import 'package:boxer_recovery/data/huawei_apple_health_source.dart';
+import 'package:boxer_recovery/data/apple_health_source.dart';
+import 'package:boxer_recovery/domain/health_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/health.dart';
 
 HealthDataPoint point(HealthDataType type, String from, String to,
-    {String source = 'HUAWEI Health: Global', num value = 1}) {
+    {String source = 'HUAWEI Health: Global',
+    String? sourceId,
+    num value = 1}) {
   return HealthDataPoint(
     uuid: '$type-$from',
     value: NumericHealthValue(numericValue: value),
@@ -13,14 +16,15 @@ HealthDataPoint point(HealthDataType type, String from, String to,
     dateTo: DateTime.parse(to),
     sourcePlatform: HealthPlatformType.appleHealth,
     sourceDeviceId: '',
-    sourceId: source,
+    sourceId: sourceId ?? source,
     sourceName: source,
   );
 }
 
 void main() {
-  test('imports only Huawei records and does not double count sleep', () {
-    final samples = HuaweiHealthNormalizer.normalize([
+  test('imports only supported watch records and does not double count sleep',
+      () {
+    final samples = AppleHealthNormalizer.normalize([
       point(HealthDataType.SLEEP_ASLEEP, '2026-10-26T23:00:00',
           '2026-10-27T01:00:00'),
       point(HealthDataType.SLEEP_LIGHT, '2026-10-26T23:00:00',
@@ -46,9 +50,9 @@ void main() {
     expect(samples.single.mode, 'LIVE');
   });
 
-  test('missing Huawei records stay unavailable', () {
+  test('missing supported watch records stay unavailable', () {
     expect(
-        HuaweiHealthNormalizer.normalize([
+        AppleHealthNormalizer.normalize([
           point(HealthDataType.HEART_RATE, '2026-10-27T07:00:00',
               '2026-10-27T07:00:01',
               source: 'Other Watch', value: 65)
@@ -56,17 +60,19 @@ void main() {
         isEmpty);
   });
 
-  test('HRV read summary distinguishes Huawei and other readable sources', () {
+  test('HRV read summary distinguishes selected and other readable sources',
+      () {
     final hrvFromOtherSource = point(HealthDataType.HEART_RATE_VARIABILITY_SDNN,
         '2026-10-27T07:00:00', '2026-10-27T07:00:01',
         source: 'Another Watch', value: 52);
     final summary = HealthReadSummary.fromPoints([hrvFromOtherSource],
         checkedAt: DateTime.parse('2026-10-27T08:00:00'));
-    expect(summary.huaweiHrvRecords, 0);
-    expect(summary.huaweiRecords, 0);
+    expect(summary.countFor(HealthSource.huawei), 0);
+    expect(summary.supportedRecords, 0);
     expect(summary.otherHrvRecords, 1);
-    expect(summary.hrvExplanation, contains('another source'));
-    expect(HuaweiHealthNormalizer.normalize([hrvFromOtherSource]), isEmpty);
+    expect(summary.hrvExplanation(HealthSource.huawei),
+        contains('another source'));
+    expect(AppleHealthNormalizer.normalize([hrvFromOtherSource]), isEmpty);
   });
 
   test('missing HRV does not infer it from heart rate', () {
@@ -75,9 +81,33 @@ void main() {
           '2026-10-27T07:00:01',
           value: 48)
     ], checkedAt: DateTime.parse('2026-10-27T08:00:00'));
-    expect(summary.huaweiHrvRecords, 0);
-    expect(summary.huaweiRecords, 1);
+    expect(summary.countFor(HealthSource.huawei), 1);
+    expect(summary.supportedRecords, 1);
     expect(summary.otherHrvRecords, 0);
-    expect(summary.hrvExplanation, contains('No Huawei HRV'));
+    expect(summary.hrvExplanation(HealthSource.huawei), contains('No HRV'));
+  });
+
+  test('keeps Huawei, Garmin and Apple Watch readings separate', () {
+    final samples = AppleHealthNormalizer.normalize([
+      point(HealthDataType.SLEEP_ASLEEP, '2026-10-26T23:00:00',
+          '2026-10-27T06:00:00',
+          source: 'HUAWEI Health: Global'),
+      point(HealthDataType.HEART_RATE, '2026-10-27T07:00:00',
+          '2026-10-27T07:00:01',
+          source: 'Connect', sourceId: 'com.garmin.connect.mobile', value: 63),
+      point(HealthDataType.HEART_RATE_VARIABILITY_SDNN, '2026-10-27T07:00:00',
+          '2026-10-27T07:00:01',
+          source: 'Art’s Apple Watch', value: 57),
+    ]);
+    expect(samples, hasLength(3));
+    expect(
+        samples
+            .singleWhere((s) => s.source == HealthSource.huawei)
+            .sleepMinutes,
+        420);
+    expect(samples.singleWhere((s) => s.source == HealthSource.garmin).hrv,
+        isNull);
+    expect(samples.singleWhere((s) => s.source == HealthSource.appleWatch).hrv,
+        57);
   });
 }

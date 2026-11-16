@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 
 import '../domain/athlete_data.dart';
+import '../domain/health_source.dart';
 
-/// Reads Huawei records that the iPhone has already received in Apple Health.
-/// HealthKit is the only live integration here; there is no Huawei API login.
-class HuaweiAppleHealthSource {
-  static const sourceName = 'Huawei via Apple Health';
+/// Reads supported device records already present in Apple Health. This is a
+/// HealthKit connection, not a direct Huawei, Garmin or Apple Watch API login.
+class AppleHealthSource {
   HealthReadSummary? lastReadSummary;
   static const types = [
     HealthDataType.SLEEP_ASLEEP,
@@ -48,70 +48,92 @@ class HuaweiAppleHealthSource {
         startTime: now.subtract(const Duration(days: 14)),
         endTime: now);
     lastReadSummary = HealthReadSummary.fromPoints(points, checkedAt: now);
-    return HuaweiHealthNormalizer.normalize(points);
+    return AppleHealthNormalizer.normalize(points);
   }
 }
 
-/// Counts readable HealthKit records without storing values or source names.
+/// Counts readable HealthKit records without storing health values.
 /// An empty result cannot distinguish no records from denied read permission.
 class HealthReadSummary {
   const HealthReadSummary({
     required this.checkedAt,
-    required this.huaweiRecords,
-    required this.huaweiHrvRecords,
+    required this.recordsBySource,
+    required this.hrvBySource,
     required this.otherHrvRecords,
   });
 
   final DateTime checkedAt;
-  final int huaweiRecords;
-  final int huaweiHrvRecords;
+  final Map<String, int> recordsBySource;
+  final Map<String, int> hrvBySource;
   final int otherHrvRecords;
+  int get supportedRecords =>
+      recordsBySource.values.fold(0, (sum, count) => sum + count);
+  int countFor(String source) => recordsBySource[source] ?? 0;
 
   factory HealthReadSummary.fromPoints(List<HealthDataPoint> points,
       {required DateTime checkedAt}) {
-    final huaweiRecords = points.where(HuaweiHealthNormalizer.isHuawei).length;
-    var huaweiHrv = 0;
+    final records = <String, int>{};
+    final hrv = <String, int>{};
     var otherHrv = 0;
     for (final point in points) {
+      final source = AppleHealthNormalizer.sourceFor(point);
+      if (source != null) {
+        records.update(source, (count) => count + 1, ifAbsent: () => 1);
+      }
       if (point.type != HealthDataType.HEART_RATE_VARIABILITY_SDNN ||
           point.value is! NumericHealthValue ||
           (point.value as NumericHealthValue).numericValue <= 0) {
         continue;
       }
-      if (HuaweiHealthNormalizer.isHuawei(point)) {
-        huaweiHrv++;
+      if (source != null) {
+        hrv.update(source, (count) => count + 1, ifAbsent: () => 1);
       } else {
         otherHrv++;
       }
     }
     return HealthReadSummary(
         checkedAt: checkedAt,
-        huaweiRecords: huaweiRecords,
-        huaweiHrvRecords: huaweiHrv,
+        recordsBySource: records,
+        hrvBySource: hrv,
         otherHrvRecords: otherHrv);
   }
 
-  String get hrvExplanation {
-    if (huaweiHrvRecords > 0) {
-      return 'Huawei HRV (SDNN) records were readable in Apple Health.';
+  String hrvExplanation(String? selectedSource) {
+    if (selectedSource != null && (hrvBySource[selectedSource] ?? 0) > 0) {
+      return '$selectedSource has readable HRV (SDNN) records.';
     }
-    if (otherHrvRecords > 0) {
-      return 'Apple Health has readable HRV records from another source. This app currently imports Huawei records only.';
+    if (hrvBySource.isNotEmpty || otherHrvRecords > 0) {
+      return 'HRV exists from another source, but no HRV was readable from the selected source. Sources are not mixed for recovery scoring.';
     }
-    return 'No Huawei HRV (SDNN) record was readable in the last 14 days. Check Heart Rate Variability > Data Sources in Apple Health and Boxer Recovery read access. HealthKit does not reveal whether a missing record or denied read access caused this.';
+    return 'No HRV (SDNN) record was readable in the last 14 days. Check Heart Rate Variability > Data Sources in Apple Health and Boxer Recovery read access. HealthKit cannot distinguish absent data from denied read access.';
   }
 }
 
 /// Converts HealthKit samples into the app's nullable daily wearable model.
-class HuaweiHealthNormalizer {
-  static bool isHuawei(HealthDataPoint point) =>
-      point.sourceName.toLowerCase().contains('huawei') ||
-      point.sourceId.toLowerCase().contains('huawei');
+class AppleHealthNormalizer {
+  static String? sourceFor(HealthDataPoint point) {
+    final name = point.sourceName.toLowerCase();
+    final id = point.sourceId.toLowerCase();
+    if (name.contains('huawei') || id.contains('huawei')) {
+      return HealthSource.huawei;
+    }
+    if (name.contains('garmin') || id.contains('garmin')) {
+      return HealthSource.garmin;
+    }
+    // HealthKit's source name can include the owner's watch name. The generic
+    // com.apple.health bundle ID alone also covers iPhone Health app entries.
+    if (name.contains('apple watch') ||
+        point.sourceDeviceId.toLowerCase().contains('apple watch')) {
+      return HealthSource.appleWatch;
+    }
+    return null;
+  }
 
   static List<WearableSample> normalize(List<HealthDataPoint> points) {
-    final huawei = points.where(isHuawei);
     final days = <String, _DayMetrics>{};
-    for (final point in huawei) {
+    for (final point in points) {
+      final source = sourceFor(point);
+      if (source == null) continue;
       final isSleep = const {
         HealthDataType.SLEEP_ASLEEP,
         HealthDataType.SLEEP_LIGHT,
@@ -123,7 +145,11 @@ class HuaweiHealthNormalizer {
       final day = localDay(isSleep && localEnd.hour >= 18
           ? localEnd.add(const Duration(days: 1))
           : localEnd);
-      final metrics = days.putIfAbsent(day, _DayMetrics.new);
+      final metrics = days.putIfAbsent('$source|$day', _DayMetrics.new);
+      metrics.source = source;
+      metrics.day = day;
+      metrics.sourceId ??= point.sourceId;
+      metrics.sourceName ??= point.sourceName;
       final value = point.value;
       final number =
           value is NumericHealthValue ? value.numericValue.toDouble() : null;
@@ -154,9 +180,11 @@ class HuaweiHealthNormalizer {
     }
     return days.entries
         .map((entry) => WearableSample(
-              date: entry.key,
-              source: HuaweiAppleHealthSource.sourceName,
+              date: entry.value.day,
+              source: entry.value.source,
               mode: 'LIVE',
+              sourceId: entry.value.sourceId,
+              sourceName: entry.value.sourceName,
               sleepMinutes: _minutes(entry.value.stages.isNotEmpty
                   ? entry.value.stages
                   : entry.value.asleep),
@@ -166,7 +194,10 @@ class HuaweiHealthNormalizer {
               workoutMinutes: _minutes(entry.value.workouts),
             ))
         .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+      ..sort((a, b) {
+        final date = a.date.compareTo(b.date);
+        return date != 0 ? date : a.source.compareTo(b.source);
+      });
   }
 
   static int? _minutes(List<(DateTime, DateTime)> ranges) {
@@ -190,6 +221,10 @@ class HuaweiHealthNormalizer {
 }
 
 class _DayMetrics {
+  String source = '';
+  String day = '';
+  String? sourceId;
+  String? sourceName;
   final asleep = <(DateTime, DateTime)>[];
   final stages = <(DateTime, DateTime)>[];
   final workouts = <(DateTime, DateTime)>[];

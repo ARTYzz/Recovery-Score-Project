@@ -2,7 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../app/boxer_controller.dart';
 import '../../data/athlete_backup.dart';
-import '../../data/huawei_apple_health_source.dart';
+import '../../domain/health_source.dart';
 import '../../domain/recovery_engine.dart';
 import '../components.dart';
 import '../design.dart';
@@ -309,7 +309,7 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.watch_outlined),
             title: const Text('Connected sources'),
             subtitle: Text(data.connections['apple'] == 'CONNECTED'
-                ? 'Huawei via Apple Health · live data'
+                ? '${data.activeHealthSource ?? 'Apple Health'} · live data'
                 : 'Health data sources and permissions'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => controller.navigate('connections')),
@@ -385,46 +385,65 @@ class ConnectionsScreen extends StatelessWidget {
           onBack: () => controller.navigate('settings')),
       const SizedBox(height: 12),
       Text(
-          controller.huaweiHealth.supported
-              ? 'Read Huawei records shared to Apple Health on this iPhone. A connected status does not guarantee every metric is available.'
+          controller.appleHealth.supported
+              ? 'Read Huawei, Garmin and Apple Watch records shared to Apple Health on this iPhone. Select one source for recovery scoring and trends.'
               : 'Live Apple Health reading requires an iPhone. No wearable data is simulated on this device.',
           style: const TextStyle(color: AppColors.muted)),
       const SizedBox(height: 18),
       AppCard(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Huawei via Apple Health',
+        const Text('Apple Health',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         const SizedBox(height: 6),
         Text(
             data.connections['apple'] == 'CONNECTED'
-                ? '${controller.huaweiHealth.lastReadSummary?.huaweiRecords == 0 ? 'Saved history' : 'Live'} · ${data.wearables.where((e) => e.source == HuaweiAppleHealthSource.sourceName).length} day(s) imported. Missing metrics stay Unavailable.'
-                : 'Not connected · Apple Health permission and Huawei records required.',
+                ? '${controller.appleHealth.lastReadSummary?.supportedRecords == 0 ? 'Saved history' : 'Imported'} · ${data.wearables.where((e) => HealthSource.isSupported(e.source)).length} source-day records. Missing metrics stay Unavailable.'
+                : 'Not connected · Apple Health permission and watch records required.',
             style: const TextStyle(color: AppColors.muted)),
-        if (controller.huaweiHealth.lastReadSummary != null) ...[
+        if (data.connections['apple'] == 'CONNECTED') ...[
+          const SizedBox(height: 12),
+          const Text('Source used for recovery assessment',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          for (final source in HealthSource.supported)
+            ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(data.activeHealthSource == source
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked),
+                title: Text(source),
+                subtitle: Text(
+                    '${data.wearables.where((sample) => sample.source == source).length} day(s) imported · ${controller.appleHealth.lastReadSummary?.countFor(source) ?? 0} record(s) in last read'),
+                onTap: data.wearables.any((sample) => sample.source == source)
+                    ? () => controller.selectHealthSource(source)
+                    : null),
+        ],
+        if (controller.appleHealth.lastReadSummary != null) ...[
           const SizedBox(height: 8),
-          if (controller.huaweiHealth.lastReadSummary!.huaweiRecords == 0)
+          if (controller.appleHealth.lastReadSummary!.supportedRecords == 0)
             const Text(
-                'Last sync returned no Huawei records. Saved history is unchanged; check Apple Health data and read access.',
+                'Last sync returned no supported watch records. Saved history is unchanged; check Apple Health data and read access.',
                 style: TextStyle(color: AppColors.amber, fontSize: 12)),
-          Text(controller.huaweiHealth.lastReadSummary!.hrvExplanation,
+          Text(
+              controller.appleHealth.lastReadSummary!
+                  .hrvExplanation(data.activeHealthSource),
               style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
         const SizedBox(height: 8),
-        if (controller.huaweiHealth.supported &&
+        if (controller.appleHealth.supported &&
             data.connections['apple'] == 'CONNECTED') ...[
           TextButton(
-              onPressed: controller.busy ? null : controller.syncHuaweiHealth,
+              onPressed: controller.busy ? null : controller.syncAppleHealth,
               child: const Text('Sync now')),
           TextButton(
               onPressed:
-                  controller.busy ? null : controller.disconnectHuaweiHealth,
+                  controller.busy ? null : controller.disconnectAppleHealth,
               child: const Text('Disconnect and clear imported data')),
-        ] else if (controller.huaweiHealth.supported)
+        ] else if (controller.appleHealth.supported)
           TextButton(
-              onPressed:
-                  controller.busy ? null : controller.connectHuaweiHealth,
-              child: const Text('Connect Huawei data')),
+              onPressed: controller.busy ? null : controller.connectAppleHealth,
+              child: const Text('Connect Apple Health')),
       ])),
       const SizedBox(height: 10),
       AppCard(

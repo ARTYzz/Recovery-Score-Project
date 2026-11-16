@@ -4,9 +4,9 @@
 
 The active app is Flutter for iOS and Android, with a browser preview for UI and manual workflows. The former Capacitor application is in `legacy_capacitor/` for reference.
 
-Wearable data is **real Apple Health data on iPhone**. The app requests read access and imports only records with Huawei provenance from the last 14 days. Sleep, HRV (Apple Health SDNN), resting heart rate, heart rate, and workout duration stay `Unavailable` until matching records can be read. A connected status confirms at least one Huawei record, not every metric. The app never creates synthetic wearable values. Health Connect is not integrated. FightCamp punch history is the **only runtime mock source** and is always labelled as such.
+Wearable data is **real Apple Health data on iPhone**. The app requests read access and imports records with Huawei, Garmin, or Apple Watch provenance from the last 14 days. Sleep, HRV (Apple Health SDNN), resting heart rate, heart rate, and workout duration stay `Unavailable` until matching records can be read. A connected status confirms at least one supported watch record, not every metric. The app never creates synthetic wearable values. Health Connect and direct vendor APIs are not integrated. FightCamp punch history is the **only runtime mock source** and is always labelled as such.
 
-Each HealthKit sync reads a 14-day window and merges returned Huawei days into encrypted local history. Older saved days remain available to Trends. A partial day updates only the metrics returned; an empty read keeps saved history and the connection state, while showing a warning. Explicit Disconnect clears the locally imported Huawei history.
+Each HealthKit sync reads a 14-day window and merges returned watch days into encrypted local history. Older saved days remain available to Trends. A partial day updates only the metrics returned; an empty read keeps saved history and the connection state, while showing a warning. Records remain separate by source. In Settings → Connected Sources, choose the source used for recovery assessment and trends. Explicit Disconnect clears locally imported watch history.
 
 ### Run and test
 
@@ -44,11 +44,11 @@ Power & Speed reads normalized FightCamp session records. After onboarding, the 
 
 Nutrition remains a quick Yes/No, protein, and carbohydrate check. The optional Food journal stores a compressed photo and user-confirmed meal estimate. It does not recognize food from a photo.
 
-### Huawei watch through Apple Health on iPhone
+### Huawei, Garmin and Apple Watch through Apple Health on iPhone
 
-The live path is **HUAWEI WATCH FIT 5 → HUAWEI Health: Global → Apple Health → Boxer Recovery**. The iOS adapter reads only Apple Health samples whose source name or ID contains `huawei`. Missing values remain `Unavailable`; the app does not calculate HRV or sleep from unrelated heart-rate samples. On iPhone, use Settings → Connected Sources → **Sync now** after new watch records arrive in Apple Health.
+The live path is **watch → its companion app (where required) → Apple Health → Boxer Recovery**. The iOS adapter recognizes Huawei and Garmin by HealthKit source name or ID, and Apple Watch by source name. It does not directly connect to those vendors. Missing values remain `Unavailable`; the app does not calculate HRV or sleep from unrelated heart-rate samples. On iPhone, use Settings → Connected Sources → **Sync now** after new watch records arrive in Apple Health. Select the watch source whose records should drive Today and Trends.
 
-The Today card labelled **Resting HR** reads Apple Health's resting-heart-rate category, not a general heart-rate sample. HRV is read only from Apple Health's HRV (SDNN) category. If that category has no readable Huawei record, HRV remains `Unavailable`; Sleep & Heart can still use sleep and resting HR as their own baseline accumulates. Connected Sources explains whether readable HRV records came from Huawei, another source, or were absent from the HealthKit query. HealthKit does not expose a reliable read-permission-denied status for individual categories.
+The Today card labelled **Resting HR** reads Apple Health's resting-heart-rate category, not a general heart-rate sample. HRV is read only from Apple Health's HRV (SDNN) category. If that category has no readable record from the selected source, HRV remains `Unavailable`; Sleep & Heart can still use sleep and resting HR as their own baseline accumulates. Garmin Connect may not write HRV or resting-heart-rate categories to Apple Health; check the Health app's Data Sources for what is actually present. Connected Sources explains whether readable HRV records came from another source or were absent from the HealthKit query. HealthKit does not expose a reliable read-permission-denied status for individual categories.
 ## 1. Project Overview
 
 This project proposes a **boxing recovery tracking application for professional boxers**. The application is designed for athletes to use independently during a fight camp to understand their daily recovery condition and make safer training decisions.

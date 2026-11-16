@@ -5,29 +5,29 @@ import 'package:flutter/foundation.dart';
 import '../data/athlete_vault.dart';
 import '../data/athlete_backup.dart';
 import '../data/fightcamp_demo_source.dart';
-import '../data/huawei_apple_health_source.dart';
+import '../data/apple_health_source.dart';
 import '../data/wearable_history_merger.dart';
 import '../domain/athlete_data.dart';
 import '../domain/head_safety_tracker.dart';
+import '../domain/health_source.dart';
 import '../domain/recovery_engine.dart';
 
 class BoxerController extends ChangeNotifier {
-  BoxerController({AthleteVault? vault, HuaweiAppleHealthSource? huaweiHealth})
+  BoxerController({AthleteVault? vault, AppleHealthSource? appleHealth})
       : vault = vault ?? AthleteVault(),
-        huaweiHealth = huaweiHealth ?? HuaweiAppleHealthSource();
+        appleHealth = appleHealth ?? AppleHealthSource();
 
   final AthleteVault vault;
   final AthleteBackup backups = AthleteBackup();
   final RecoveryEngine engine = RecoveryEngine();
   final FeedbackService feedback = FeedbackService();
-  final HuaweiAppleHealthSource huaweiHealth;
-  static const _huaweiHistory =
-      WearableHistoryMerger(HuaweiAppleHealthSource.sourceName);
+  final AppleHealthSource appleHealth;
+  static const _appleHealthHistory = WearableHistoryMerger();
   AthleteData? data;
   String route = 'setup';
   String? error;
   bool busy = true;
-  bool _syncingHuawei = false;
+  bool _syncingAppleHealth = false;
 
   Assessment? get assessment => data == null ? null : engine.assess(data!);
 
@@ -72,7 +72,7 @@ class BoxerController extends ChangeNotifier {
 
   void refreshDailyGate() {
     if (data?.morningDue == true) navigate('morning');
-    if (data?.connections['apple'] == 'CONNECTED') syncHuaweiHealth();
+    if (data?.connections['apple'] == 'CONNECTED') syncAppleHealth();
   }
 
   Future<void> createProfile(
@@ -109,7 +109,7 @@ class BoxerController extends ChangeNotifier {
     }
     _removeLegacySyntheticHealth(data!);
     if (data!.connections['apple'] == 'CONNECTED') {
-      await syncHuaweiHealth();
+      await syncAppleHealth();
     }
     if (data!.onboardingStage == 'complete') {
       const MockFightCampSource().ensureDemoData(data!);
@@ -166,10 +166,11 @@ class BoxerController extends ChangeNotifier {
   Future<void> saveMorning(MorningCheckIn check) async {
     final athlete = data!;
     athlete.saveMorning(check);
-    final currentSamples =
-        athlete.wearables.where((sample) => sample.date == check.date).toList();
+    final currentSamples = athlete.activeWearables
+        .where((sample) => sample.date == check.date)
+        .toList();
     final today = currentSamples.isEmpty ? null : currentSamples.last;
-    final priorSamples = athlete.wearables
+    final priorSamples = athlete.activeWearables
         .where((sample) =>
             sample.date.compareTo(check.date) < 0 &&
             (today == null || sample.source == today.source))
@@ -269,22 +270,24 @@ class BoxerController extends ChangeNotifier {
     await _persistAndGo('camp');
   }
 
-  Future<void> connectHuaweiHealth() async {
+  Future<void> connectAppleHealth() async {
     if (busy) return;
     busy = true;
     error = null;
     notifyListeners();
     try {
-      final samples = await huaweiHealth.connect();
+      final samples = await appleHealth.connect();
       if (samples.isEmpty) {
         throw const FormatException(
-            'No Huawei records were readable in Apple Health. Check Apple Health data sources and Boxer Recovery read permissions on your iPhone.');
+            'No Huawei, Garmin or Apple Watch records were readable in Apple Health. Check the Health app data sources and Boxer Recovery read permissions.');
       }
       final athlete = data!;
       athlete.healthAcceptedAt = DateTime.now().toIso8601String();
       athlete.connections['apple'] = 'CONNECTED';
       athlete.wearables.removeWhere((sample) => sample.mode == 'DEMO');
-      _huaweiHistory.merge(athlete, samples);
+      _appleHealthHistory.merge(athlete, samples);
+      athlete.connections.putIfAbsent('healthSource',
+          () => athlete.activeHealthSource ?? samples.last.source);
       await vault.save();
     } catch (e) {
       showError(e);
@@ -294,37 +297,50 @@ class BoxerController extends ChangeNotifier {
     }
   }
 
-  Future<void> syncHuaweiHealth() async {
-    if (_syncingHuawei || data?.connections['apple'] != 'CONNECTED') return;
-    _syncingHuawei = true;
+  Future<void> syncAppleHealth() async {
+    if (_syncingAppleHealth || data?.connections['apple'] != 'CONNECTED') {
+      return;
+    }
+    _syncingAppleHealth = true;
     busy = true;
     notifyListeners();
     try {
-      final samples = await huaweiHealth.sync();
+      final samples = await appleHealth.sync();
       final athlete = data!;
       if (samples.isEmpty) {
         error =
-            'No Huawei records were readable in this sync. Saved history is unchanged; check Apple Health data and read access.';
+            'No supported watch records were readable in this sync. Saved history is unchanged; check Apple Health data and read access.';
       } else {
         error = null;
-        _huaweiHistory.merge(athlete, samples);
+        _appleHealthHistory.merge(athlete, samples);
         await vault.save();
       }
     } catch (e) {
       showError(e);
     } finally {
-      _syncingHuawei = false;
+      _syncingAppleHealth = false;
       busy = false;
       notifyListeners();
     }
   }
 
-  Future<void> disconnectHuaweiHealth() async {
+  Future<void> disconnectAppleHealth() async {
     final athlete = data!;
     athlete.connections['apple'] = 'DISCONNECTED';
     athlete.healthAcceptedAt = null;
-    athlete.wearables.removeWhere(
-        (sample) => sample.source == HuaweiAppleHealthSource.sourceName);
+    athlete.wearables
+        .removeWhere((sample) => HealthSource.isSupported(sample.source));
+    athlete.connections.remove('healthSource');
+    await _persistAndGo('connections');
+  }
+
+  Future<void> selectHealthSource(String source) async {
+    if (!HealthSource.isSupported(source) ||
+        !data!.wearables.any((sample) => sample.source == source)) {
+      throw const FormatException(
+          'This health source has no imported records.');
+    }
+    data!.connections['healthSource'] = source;
     await _persistAndGo('connections');
   }
 

@@ -82,12 +82,13 @@ class PersonalBaseline {
   final AthleteData data;
 
   Baseline wearable(double? Function(WearableSample) read) {
-    final source = data.latestMetricSample(read)?.source;
+    final source = data.activeHealthSource;
+    if (source == null) return const Baseline(null, 0, false);
     final daily = <String, double>{};
     final cutoff =
         localDay(data.currentDate.subtract(const Duration(days: 30)));
     for (final sample in data.wearables) {
-      if (source != null && sample.source != source) {
+      if (sample.source != source) {
         continue;
       }
       if (sample.date.compareTo(cutoff) < 0 ||

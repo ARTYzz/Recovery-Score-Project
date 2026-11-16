@@ -177,7 +177,7 @@ class TodayScreen extends StatelessWidget {
                 restingHr?.restingHr?.round().toString() ?? 'Unavailable',
                 unit: restingHr?.restingHr == null ? '' : ' bpm'))
       ]),
-      if (hrv?.hrv == null && controller.huaweiHealth.supported)
+      if (hrv?.hrv == null && controller.appleHealth.supported)
         Align(
             alignment: Alignment.centerRight,
             child: TextButton(

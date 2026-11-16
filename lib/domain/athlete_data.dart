@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'health_source.dart';
 
 String localDay([DateTime? now]) {
   final day = now ?? DateTime.now();
@@ -38,6 +39,8 @@ class WearableSample {
       {required this.date,
       required this.source,
       required this.mode,
+      this.sourceId,
+      this.sourceName,
       this.sleepMinutes,
       this.hrv,
       this.restingHr,
@@ -46,6 +49,8 @@ class WearableSample {
   final String date;
   final String source;
   final String mode;
+  final String? sourceId;
+  final String? sourceName;
   final int? sleepMinutes;
   final double? hrv;
   final double? restingHr;
@@ -56,6 +61,8 @@ class WearableSample {
         date: json['date'] as String? ?? '',
         source: json['source'] as String? ?? 'Unavailable',
         mode: json['mode'] as String? ?? 'UNKNOWN',
+        sourceId: json['sourceId'] as String?,
+        sourceName: json['sourceName'] as String?,
         sleepMinutes: intOrNull(json['sleepMinutes']),
         hrv: numberOrNull(json['hrv']),
         restingHr: numberOrNull(json['restingHr']),
@@ -66,6 +73,8 @@ class WearableSample {
         'date': date,
         'source': source,
         'mode': mode,
+        'sourceId': sourceId,
+        'sourceName': sourceName,
         'sleepMinutes': sleepMinutes,
         'hrv': hrv,
         'restingHr': restingHr,
@@ -367,11 +376,47 @@ class AthleteData {
   bool get morningDue =>
       onboardingStage == 'complete' &&
       !checkins.any((e) => e.date == currentDay);
-  WearableSample? get latestWearable =>
-      wearables.isEmpty ? null : wearables.last;
+  String? get activeHealthSource {
+    final selected = connections['healthSource'];
+    if (selected != null) return selected;
+    WearableSample? best;
+    for (final sample in wearables) {
+      if (sample.mode != 'LIVE' || !HealthSource.isSupported(sample.source)) {
+        continue;
+      }
+      if (best == null ||
+          sample.date.compareTo(best.date) > 0 ||
+          (sample.date == best.date &&
+              _metricCount(sample) > _metricCount(best))) {
+        best = sample;
+      }
+    }
+    return best?.source ?? (wearables.isEmpty ? null : wearables.last.source);
+  }
+
+  static int _metricCount(WearableSample sample) => [
+        sample.sleepMinutes,
+        sample.hrv,
+        sample.restingHr,
+        sample.heartRate,
+        sample.workoutMinutes
+      ].where((value) => value != null).length;
+
+  Iterable<WearableSample> get activeWearables =>
+      wearables.where((sample) => sample.source == activeHealthSource);
+
+  WearableSample? get latestWearable {
+    for (final sample in wearables.reversed) {
+      if (sample.source == activeHealthSource) return sample;
+    }
+    return null;
+  }
+
   WearableSample? latestMetricSample(num? Function(WearableSample) read) {
     for (final sample in wearables.reversed) {
-      if (read(sample) != null) return sample;
+      if (sample.source == activeHealthSource && read(sample) != null) {
+        return sample;
+      }
     }
     return null;
   }

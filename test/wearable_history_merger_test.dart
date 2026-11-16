@@ -1,13 +1,14 @@
 import 'package:boxer_recovery/app/boxer_controller.dart';
 import 'package:boxer_recovery/data/athlete_vault.dart';
-import 'package:boxer_recovery/data/huawei_apple_health_source.dart';
+import 'package:boxer_recovery/data/apple_health_source.dart';
 import 'package:boxer_recovery/data/wearable_history_merger.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
+import 'package:boxer_recovery/domain/health_source.dart';
 import 'package:boxer_recovery/domain/trends_dashboard.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const huawei = HuaweiAppleHealthSource.sourceName;
+const huawei = HealthSource.huawei;
 
 WearableSample sample(String day,
         {String source = huawei,
@@ -27,7 +28,7 @@ WearableSample sample(String day,
       workoutMinutes: workout,
     );
 
-class FakeHuaweiHealthSource extends HuaweiAppleHealthSource {
+class FakeHuaweiHealthSource extends AppleHealthSource {
   List<WearableSample> results = [];
 
   @override
@@ -78,11 +79,11 @@ void main() {
     final vault = AthleteVault();
     await vault.create('test-passphrase', athlete);
     final source = FakeHuaweiHealthSource();
-    final app = BoxerController(vault: vault, huaweiHealth: source)
+    final app = BoxerController(vault: vault, appleHealth: source)
       ..data = athlete
       ..busy = false;
 
-    await app.syncHuaweiHealth();
+    await app.syncAppleHealth();
     expect(app.data!.connections['apple'], 'CONNECTED');
     expect(app.data!.healthAcceptedAt, '2026-09-01T08:00:00');
     expect(app.data!.wearables.single.sleepMinutes, 430);
@@ -103,12 +104,12 @@ void main() {
     await vault.create('test-passphrase', athlete);
     final source = FakeHuaweiHealthSource()
       ..results = [sample('2026-11-12', sleep: 450, rhr: 48)];
-    final app = BoxerController(vault: vault, huaweiHealth: source)
+    final app = BoxerController(vault: vault, appleHealth: source)
       ..data = athlete
       ..busy = false;
 
-    await app.syncHuaweiHealth();
-    await app.syncHuaweiHealth();
+    await app.syncAppleHealth();
+    await app.syncAppleHealth();
     final reopened = await AthleteVault().unlock('test-passphrase');
     expect(reopened.wearables, hasLength(2));
     expect(reopened.wearables.first.date, '2026-09-01');
@@ -131,13 +132,31 @@ void main() {
     final vault = AthleteVault();
     await vault.create('test-passphrase', athlete);
     final app =
-        BoxerController(vault: vault, huaweiHealth: FakeHuaweiHealthSource())
+        BoxerController(vault: vault, appleHealth: FakeHuaweiHealthSource())
           ..data = athlete
           ..busy = false;
 
-    await app.disconnectHuaweiHealth();
+    await app.disconnectAppleHealth();
     expect(app.data!.connections['apple'], 'DISCONNECTED');
     expect(app.data!.wearables, hasLength(1));
     expect(app.data!.wearables.single.source, 'Another source');
+  });
+
+  test('selected health source controls metrics and trends without mixing', () {
+    final athlete = AthleteData();
+    const merger = WearableHistoryMerger();
+    merger.merge(athlete, [
+      sample('2026-11-12', source: HealthSource.huawei, sleep: 420),
+      sample('2026-11-12', source: HealthSource.garmin, heartRate: 71),
+      sample('2026-11-12', source: HealthSource.appleWatch, hrv: 55),
+    ]);
+    expect(athlete.wearables, hasLength(3));
+    athlete.connections['healthSource'] = HealthSource.garmin;
+    expect(athlete.latestWearable?.heartRate, 71);
+    expect(athlete.latestSleepSample, isNull);
+    expect(athlete.latestMetricSample((s) => s.hrv), isNull);
+    final trends = TrendsDashboard.fromData(
+        athlete, TrendWindow(TrendPeriod.year, DateTime(2026, 11, 12)));
+    expect(trends.metrics['Sleep']!.values.whereType<double>(), isEmpty);
   });
 }

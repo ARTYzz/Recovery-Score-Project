@@ -46,15 +46,15 @@ void main() {
     expect(assessment.observedCount, assessment.assessedCount);
   });
 
-  test('Sleep remains available when the latest source reports only HRV', () {
+  test('Sleep remains available when the latest sample reports only HRV', () {
     final athlete = AthleteData();
     athlete.wearables.add(WearableSample(
         date: localDay(),
-        source: 'Test sleep fixture',
+        source: 'Test fixture',
         mode: 'TEST',
         sleepMinutes: 437));
     athlete.wearables.add(WearableSample(
-        date: localDay(), source: 'Test HRV fixture', mode: 'TEST', hrv: 66));
+        date: localDay(), source: 'Test fixture', mode: 'TEST', hrv: 66));
     expect(athlete.latestWearable?.sleepMinutes, isNull);
     expect(athlete.latestSleepSample?.sleepMinutes, 437);
     final assessment = RecoveryEngine().assess(athlete);
