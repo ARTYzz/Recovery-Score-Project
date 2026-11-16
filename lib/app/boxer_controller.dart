@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -53,6 +54,11 @@ class BoxerController extends ChangeNotifier {
     error = null;
     final current = data;
     if (current != null) {
+      if (current.profile?.archiveExpiredFight() == true) {
+        unawaited(vault.save().catchError((Object failure) {
+          showError(failure);
+        }));
+      }
       if (current.onboardingStage == 'sources') {
         route = 'health-preview';
       } else if (current.onboardingStage == 'connect') {

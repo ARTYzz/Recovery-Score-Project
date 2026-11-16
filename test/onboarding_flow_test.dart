@@ -280,4 +280,26 @@ void main() {
     expect(reopened.profile!.fightDate, isNull);
     expect(reopened.profile!.pastFightPlans.single.date, past);
   });
+
+  test('navigating after midnight also clears the previous fight', () async {
+    SharedPreferences.setMockInitialValues({});
+    final past = localDay(DateTime.now().subtract(const Duration(days: 1)));
+    final athlete = AthleteData(
+        profile: AthleteProfile(
+            name: 'Boxer', fightDate: past, currentWeight: 74, heightCm: 175),
+        onboardingStage: 'complete');
+    athlete.saveMorning(
+        MorningCheckIn(date: localDay(), weight: 74, urine: 2, mood: 'OK'));
+    final vault = AthleteVault();
+    await vault.create('test-passphrase', athlete);
+    final app = BoxerController(vault: vault)
+      ..data = athlete
+      ..busy = false;
+    app.navigate('camp');
+    expect(app.route, 'camp');
+    expect(athlete.profile!.fightDate, isNull);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final reopened = await AthleteVault().unlock('test-passphrase');
+    expect(reopened.profile!.pastFightPlans.single.date, past);
+  });
 }
