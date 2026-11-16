@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app/boxer_controller.dart';
 import 'ui/design.dart';
 import 'ui/screens.dart';
@@ -37,18 +38,24 @@ class _BoxerRecoveryAppState extends State<BoxerRecoveryApp>
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Boxer Recovery',
-        debugShowCheckedModeBanner: false,
-        theme: boxerTheme(),
-        home: AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) => Center(
-                child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 390),
-                    child: ClipRect(
-                        child: AppScreens(
-                            controller: controller,
-                            key: ValueKey(controller.route)))))),
-      );
+  Widget build(BuildContext context) => AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => MaterialApp(
+          title: 'Boxer Recovery',
+          debugShowCheckedModeBanner: false,
+          locale: Locale(controller.languageCode),
+          supportedLocales: const [Locale('en'), Locale('th')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: boxerTheme(),
+          home: Center(
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 390),
+                  child: ClipRect(
+                      child: AppScreens(
+                          controller: controller,
+                          key: ValueKey(controller.route)))))));
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' hide Text;
+import 'package:flutter/material.dart' hide Text;
+import '../app_text.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../app/boxer_controller.dart';
 import '../../domain/athlete_data.dart';
@@ -561,7 +562,8 @@ class _FoodScreenState extends State<FoodScreen> {
         const SizedBox(height: 12),
         TextField(
             controller: description,
-            decoration: const InputDecoration(labelText: 'Description')),
+            decoration:
+                InputDecoration(labelText: AppCopy.of(context, 'Description'))),
       ],
       const SizedBox(height: 12),
       Row(children: [
@@ -578,7 +580,7 @@ class _FoodScreenState extends State<FoodScreen> {
                       controller: field.$2,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                          labelText: field.$1,
+                          labelText: AppCopy.of(context, field.$1),
                           contentPadding: const EdgeInsets.all(8)))))
       ]),
       const SizedBox(height: 12),

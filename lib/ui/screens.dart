@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'app_text.dart';
 import '../app/boxer_controller.dart';
 import 'screens/home_screens.dart';
 import 'screens/log_screens.dart';

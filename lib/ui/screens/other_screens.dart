@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import '../app_text.dart';
 import '../../app/boxer_controller.dart';
 import '../../data/athlete_backup.dart';
 import '../../domain/athlete_data.dart';
@@ -214,6 +215,32 @@ class _TrendPainter extends CustomPainter {
   bool shouldRepaint(_TrendPainter old) => old.values != values;
 }
 
+class LanguageSelector extends StatelessWidget {
+  const LanguageSelector(this.controller, {super.key});
+  final BoxerController controller;
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SectionLabel('Language'),
+        const SizedBox(height: 8),
+        const Text('Choose the language used in the app.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'en', label: Text('English')),
+              ButtonSegment(value: 'th', label: Text('ไทย')),
+            ],
+            selected: {
+              controller.languageCode
+            },
+            onSelectionChanged: (selection) =>
+                controller.setLanguage(selection.first)),
+      ]));
+}
+
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen(this.controller, {super.key});
   final BoxerController controller;
@@ -233,8 +260,8 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: (value) => entered = value,
                     obscureText: true,
                     autofocus: true,
-                    decoration:
-                        const InputDecoration(labelText: 'Backup passphrase'))
+                    decoration: InputDecoration(
+                        labelText: AppCopy.of(context, 'Backup passphrase')))
               ]),
               actions: [
                 TextButton(
@@ -344,6 +371,8 @@ class SettingsScreen extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, size: 17),
             label: const Text('Edit profile'))
       ])),
+      const SizedBox(height: 15),
+      LanguageSelector(controller),
       const SizedBox(height: 15),
       AppCard(
           child: Column(children: [
@@ -465,7 +494,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextField(
               controller: name,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(hintText: 'Your name')),
+              decoration:
+                  InputDecoration(hintText: AppCopy.of(context, 'Your name'))),
           const SizedBox(height: 20),
           const FieldTitle('Next fight date',
               helper: 'Optional. Set it when your next fight is confirmed.'),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/athlete_vault.dart';
 import '../data/athlete_backup.dart';
@@ -29,12 +30,16 @@ class BoxerController extends ChangeNotifier {
   String? error;
   bool busy = true;
   bool _syncingAppleHealth = false;
+  String languageCode = 'en';
 
   Assessment? get assessment => data == null ? null : engine.assess(data!);
 
   Future<void> initialize() async {
     busy = true;
     notifyListeners();
+    final preferences = await SharedPreferences.getInstance();
+    languageCode =
+        preferences.getString('boxer_language') == 'th' ? 'th' : 'en';
     if (!await vault.exists()) {
       route = 'setup';
     } else if (await vault.demoAutoUnlockEnabled()) {
@@ -407,6 +412,14 @@ class BoxerController extends ChangeNotifier {
   Future<void> toggleNotifications() async {
     data!.notifications = !data!.notifications;
     await _persistAndGo('settings');
+  }
+
+  Future<void> setLanguage(String code) async {
+    if (code != 'en' && code != 'th') return;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('boxer_language', code);
+    languageCode = code;
+    notifyListeners();
   }
 
   Future<Uint8List> exportBackup(String passphrase) async {

@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import '../app_text.dart';
 import '../../app/boxer_controller.dart';
 import '../../data/athlete_backup.dart';
 import '../../domain/recovery_engine.dart';
@@ -43,14 +44,15 @@ class _SetupScreenState extends State<SetupScreen> {
                   TextField(
                       obscureText: true,
                       onChanged: (value) => backupPassphrase = value,
-                      decoration: const InputDecoration(
-                          labelText: 'Backup passphrase')),
+                      decoration: InputDecoration(
+                          labelText: AppCopy.of(context, 'Backup passphrase'))),
                   const SizedBox(height: 10),
                   TextField(
                       obscureText: true,
                       onChanged: (value) => localPassphrase = value,
-                      decoration: const InputDecoration(
-                          labelText: 'New local passphrase')),
+                      decoration: InputDecoration(
+                          labelText:
+                              AppCopy.of(context, 'New local passphrase'))),
                 ]),
                 actions: [
                   TextButton(
@@ -116,7 +118,8 @@ class _SetupScreenState extends State<SetupScreen> {
         TextField(
             controller: name,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'Your name')),
+            decoration:
+                InputDecoration(hintText: AppCopy.of(context, 'Your name'))),
         const SizedBox(height: 20),
         const FieldTitle('Next fight date',
             helper: 'Optional. Set it later when a fight is scheduled.'),
@@ -143,8 +146,8 @@ class _SetupScreenState extends State<SetupScreen> {
         TextField(
             controller: pass,
             obscureText: true,
-            decoration:
-                const InputDecoration(hintText: 'At least 8 characters')),
+            decoration: InputDecoration(
+                hintText: AppCopy.of(context, 'At least 8 characters'))),
         const SizedBox(height: 12),
         CheckboxListTile(
             contentPadding: EdgeInsets.zero,
@@ -210,7 +213,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
         TextField(
             controller: pass,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Local passphrase')),
+            decoration: InputDecoration(
+                labelText: AppCopy.of(context, 'Local passphrase'))),
         const SizedBox(height: 20),
         PrimaryButton('Unlock', onPressed: () async {
           try {

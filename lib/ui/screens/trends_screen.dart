@@ -1,5 +1,6 @@
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import '../app_text.dart';
 import '../../app/boxer_controller.dart';
 import '../../domain/recovery_engine.dart';
 import '../../domain/trends_dashboard.dart';

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'app_text.dart';
 import 'design.dart';
 
 class AppCard extends StatelessWidget {
@@ -278,14 +279,16 @@ class ProfileMeasurementsFields extends StatelessWidget {
               controller: currentWeight,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: 'e.g. 72.5')),
+              decoration:
+                  InputDecoration(hintText: AppCopy.of(context, 'e.g. 72.5'))),
           const SizedBox(height: 20),
           const FieldTitle('Height (cm)'),
           TextField(
               controller: heightCm,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: 'e.g. 175')),
+              decoration:
+                  InputDecoration(hintText: AppCopy.of(context, 'e.g. 175'))),
           const SizedBox(height: 20),
           const FieldTitle('Target weight (kg)',
               helper:
@@ -294,7 +297,8 @@ class ProfileMeasurementsFields extends StatelessWidget {
               controller: targetWeight,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: 'Optional')),
+              decoration:
+                  InputDecoration(hintText: AppCopy.of(context, 'Optional'))),
         ],
       );
 }
