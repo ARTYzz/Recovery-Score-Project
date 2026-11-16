@@ -1,5 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../app/boxer_controller.dart';
+import '../../data/athlete_backup.dart';
+import '../../data/huawei_apple_health_source.dart';
 import '../../domain/recovery_engine.dart';
 import '../components.dart';
 import '../design.dart';
@@ -179,103 +182,110 @@ class _TrendPainter extends CustomPainter {
   bool shouldRepaint(_TrendPainter old) => old.values != values;
 }
 
-class TrendsScreen extends StatelessWidget {
-  const TrendsScreen(this.controller, {super.key});
-  final BoxerController controller;
-  @override
-  Widget build(BuildContext context) {
-    final data = controller.data!;
-    final metrics = <(String, List<double>)>[
-      ('HRV', data.wearables.map((e) => e.hrv).whereType<double>().toList()),
-      (
-        'Sleep',
-        data.wearables
-            .map((e) => e.sleepMinutes?.toDouble())
-            .whereType<double>()
-            .toList()
-      ),
-      (
-        'Resting HR',
-        data.wearables.map((e) => e.restingHr).whereType<double>().toList()
-      ),
-      (
-        'Weight',
-        data.checkins.map((e) => e.weight).whereType<double>().toList()
-      ),
-      (
-        'FightCamp punches',
-        data.fightCampSessions
-            .map((e) => e.count?.toDouble())
-            .whereType<double>()
-            .toList()
-      ),
-    ];
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      PageHeader(
-          title: 'History & Trends',
-          onBack: () => controller.navigate('today')),
-      const SizedBox(height: 20),
-      for (final metric in metrics) ...[
-        AppCard(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SectionLabel(metric.$1),
-          const SizedBox(height: 8),
-          Text(
-              metric.$2.isEmpty
-                  ? 'Unavailable'
-                  : '${metric.$2.last.round()} latest · ${metric.$2.length} records',
-              style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          SizedBox(
-              height: 65,
-              child: CustomPaint(
-                  size: const Size(double.infinity, 65),
-                  painter: _TrendPainter(metric.$2, AppColors.teal)))
-        ])),
-        const SizedBox(height: 12)
-      ],
-      const SectionLabel('Training load by type'),
-      const SizedBox(height: 10),
-      AppCard(
-          child: Column(children: [
-        for (final type in [
-          'Sparring',
-          'Boxing / Technical',
-          'Conditioning',
-          'Strength'
-        ])
-          Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(type),
-                    Text(
-                        '${data.sessions.where((e) => e.type == type).length} sessions')
-                  ]))
-      ])),
-      const SizedBox(height: 15),
-      AppCard(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const SectionLabel('Recovery history'),
-        const SizedBox(height: 8),
-        Text(
-            '${data.actions.length} actions completed · ${data.assessments.length} assessments'),
-        const SizedBox(height: 8),
-        for (final snapshot in data.assessments.reversed.take(7))
-          Text(
-              '${snapshot['date']}  ·  ${snapshot['limiter'] ?? 'Learning baseline'}',
-              style: const TextStyle(fontSize: 12, color: AppColors.muted))
-      ]))
-    ]);
-  }
-}
-
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen(this.controller, {super.key});
   final BoxerController controller;
+
+  Future<String?> _backupPassphrase(BuildContext context,
+      {required String title}) async {
+    var entered = '';
+    return showDialog<String>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+              title: Text(title),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text(
+                    'Use at least 8 characters. Keep this passphrase: the backup cannot be opened without it.'),
+                const SizedBox(height: 12),
+                TextField(
+                    onChanged: (value) => entered = value,
+                    obscureText: true,
+                    autofocus: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Backup passphrase'))
+              ]),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(dialog),
+                    child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(dialog, entered),
+                    child: const Text('Continue'))
+              ],
+            ));
+  }
+
+  void _message(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _export(BuildContext context) async {
+    final passphrase =
+        await _backupPassphrase(context, title: 'Create encrypted backup');
+    if (passphrase == null || !context.mounted) return;
+    try {
+      final bytes = await controller.exportBackup(passphrase);
+      final day = DateTime.now().toIso8601String().substring(0, 10);
+      final location = await FilePicker.saveFile(
+          fileName: 'boxer-recovery-$day.brbackup',
+          bytes: bytes,
+          mimeType: 'application/octet-stream',
+          dialogTitle: 'Save encrypted backup');
+      if (!context.mounted) return;
+      if (location != null) {
+        _message(context,
+            'Encrypted backup saved. Keep the file and passphrase safe.');
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      _message(context,
+          'Backup could not be saved. Check the passphrase and try again.');
+    }
+  }
+
+  Future<void> _restore(BuildContext context) async {
+    try {
+      final file = await FilePicker.pickFile(
+          type: FileType.custom, allowedExtensions: ['brbackup']);
+      if (file == null || !context.mounted) return;
+      if ((file.lengthSync() ?? 0) > AthleteBackup.maxBytes) {
+        throw const FormatException('Backup file is too large.');
+      }
+      final passphrase =
+          await _backupPassphrase(context, title: 'Open encrypted backup');
+      if (passphrase == null || !context.mounted) return;
+      final restored =
+          await controller.decodeBackup(await file.readAsBytes(), passphrase);
+      if (!context.mounted) return;
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+                title: const Text('Replace local data?'),
+                content: Text(
+                    'Restore ${restored.profile?.name ?? 'athlete'} with ${restored.checkins.length} check-ins and ${restored.sessions.length} training logs? This replaces the current local account. Health permissions must be connected again on this device.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      child: const Text('Restore'))
+                ],
+              ));
+      if (confirmed != true) return;
+      await controller.restoreBackup(restored);
+      if (!context.mounted) return;
+      _message(context, 'Backup restored. Review your health connection.');
+    } catch (_) {
+      if (!context.mounted) return;
+      _message(context,
+          'Restore failed. Check the backup file and passphrase. Current data was kept.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = controller.data!;
@@ -314,6 +324,27 @@ class SettingsScreen extends StatelessWidget {
             title: const Text('Privacy & consent'),
             subtitle: Text(
                 'Privacy: ${data.privacyAcceptedAt == null ? 'Not accepted' : 'Accepted'} · Health: ${data.connections['apple'] == 'CONNECTED' ? 'Apple Health live' : 'Not connected'}'))
+      ])),
+      const SizedBox(height: 15),
+      AppCard(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SectionLabel('Data backup'),
+        const SizedBox(height: 7),
+        const Text(
+            'Backups are encrypted files you save yourself. Nothing is uploaded by the app.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        const SizedBox(height: 8),
+        ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.file_upload_outlined),
+            title: const Text('Export encrypted backup'),
+            onTap: () => _export(context)),
+        ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.file_download_outlined),
+            title: const Text('Restore from backup'),
+            onTap: () => _restore(context)),
       ])),
       const SizedBox(height: 15),
       OutlinedButton(onPressed: controller.lock, child: const Text('Lock app')),
@@ -367,11 +398,15 @@ class ConnectionsScreen extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
             data.connections['apple'] == 'CONNECTED'
-                ? 'Live · ${data.wearables.where((e) => e.mode == 'LIVE').length} day(s) imported. Missing metrics stay Unavailable.'
+                ? '${controller.huaweiHealth.lastReadSummary?.huaweiRecords == 0 ? 'Saved history' : 'Live'} · ${data.wearables.where((e) => e.source == HuaweiAppleHealthSource.sourceName).length} day(s) imported. Missing metrics stay Unavailable.'
                 : 'Not connected · Apple Health permission and Huawei records required.',
             style: const TextStyle(color: AppColors.muted)),
         if (controller.huaweiHealth.lastReadSummary != null) ...[
           const SizedBox(height: 8),
+          if (controller.huaweiHealth.lastReadSummary!.huaweiRecords == 0)
+            const Text(
+                'Last sync returned no Huawei records. Saved history is unchanged; check Apple Health data and read access.',
+                style: TextStyle(color: AppColors.amber, fontSize: 12)),
           Text(controller.huaweiHealth.lastReadSummary!.hrvExplanation,
               style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],

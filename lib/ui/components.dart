@@ -218,13 +218,14 @@ class NavBar extends StatelessWidget {
           _item('training', 'Training', Icons.sports_mma_outlined),
           _item('nutrition', 'Food', Icons.restaurant_outlined),
           _item('camp', 'Camp', Icons.flag_outlined),
+          _item('trends', 'Trends', Icons.show_chart_outlined),
           _item('settings', 'Settings', Icons.settings_outlined),
         ]),
       );
   Widget _item(String key, String label, IconData icon) => InkWell(
       onTap: () => go(key),
       child: SizedBox(
-          width: 65,
+          width: 55,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon,
                 size: 23,

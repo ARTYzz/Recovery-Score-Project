@@ -1,5 +1,7 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../app/boxer_controller.dart';
+import '../../data/athlete_backup.dart';
 import '../../domain/recovery_engine.dart';
 import '../components.dart';
 import '../design.dart';
@@ -17,6 +19,74 @@ class _SetupScreenState extends State<SetupScreen> {
   final weight = TextEditingController();
   DateTime? fightDate;
   bool accepted = false;
+
+  Future<void> _restoreFromBackup() async {
+    try {
+      final file = await FilePicker.pickFile(
+          type: FileType.custom, allowedExtensions: ['brbackup']);
+      if (file == null || !mounted) return;
+      if ((file.lengthSync() ?? 0) > AthleteBackup.maxBytes) {
+        throw const FormatException('Backup file is too large.');
+      }
+      var backupPassphrase = '';
+      var localPassphrase = '';
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+                title: const Text('Restore athlete backup'),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text(
+                      'Enter the backup passphrase and choose a local passphrase for this device. Both must be at least 8 characters.'),
+                  const SizedBox(height: 10),
+                  TextField(
+                      obscureText: true,
+                      onChanged: (value) => backupPassphrase = value,
+                      decoration: const InputDecoration(
+                          labelText: 'Backup passphrase')),
+                  const SizedBox(height: 10),
+                  TextField(
+                      obscureText: true,
+                      onChanged: (value) => localPassphrase = value,
+                      decoration: const InputDecoration(
+                          labelText: 'New local passphrase')),
+                ]),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      child: const Text('Continue')),
+                ],
+              ));
+      if (confirmed != true || !mounted) return;
+      final restored = await widget.controller
+          .decodeBackup(await file.readAsBytes(), backupPassphrase);
+      if (!mounted) return;
+      final replace = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+                title: const Text('Use this athlete profile?'),
+                content: Text(
+                    'Restore ${restored.profile?.name ?? 'athlete'} with ${restored.checkins.length} check-ins and ${restored.sessions.length} training logs? Existing local data on this device will be replaced. Health permissions must be connected again.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      child: const Text('Restore')),
+                ],
+              ));
+      if (replace == true) {
+        await widget.controller.restoreNewAccount(restored, localPassphrase);
+      }
+    } catch (_) {
+      widget.controller.showError(const FormatException(
+          'Restore failed. Check the file and passphrases.'));
+    }
+  }
+
   @override
   void dispose() {
     name.dispose();
@@ -96,6 +166,11 @@ class _SetupScreenState extends State<SetupScreen> {
             widget.controller.showError(e);
           }
         }),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+            onPressed: _restoreFromBackup,
+            icon: const Icon(Icons.file_download_outlined),
+            label: const Text('Restore from encrypted backup')),
       ]);
 }
 

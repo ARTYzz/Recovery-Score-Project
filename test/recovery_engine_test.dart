@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:boxer_recovery/data/fightcamp_demo_source.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
 import 'package:boxer_recovery/domain/recovery_engine.dart';
+import 'package:boxer_recovery/domain/head_safety_tracker.dart';
 
 /// Explicit test fixture; no synthetic wearable source is shipped in the app.
 AthleteData seededAthlete() {
@@ -57,10 +58,10 @@ void main() {
     expect(athlete.latestWearable?.sleepMinutes, isNull);
     expect(athlete.latestSleepSample?.sleepMinutes, 437);
     final assessment = RecoveryEngine().assess(athlete);
-    expect(assessment.baselines['sleep']!.value, 437);
+    expect(assessment.baselines['sleep']!.value, isNull);
     expect(assessment.domains['sleep']!.status, 'INSUFFICIENT_DATA');
     expect(assessment.observedCount, assessment.assessedCount + 1);
-    expect(RecoveryOverview.fromAssessment(assessment).score, isNull);
+    expect(assessment.domains['sleep']!.score, isNull);
   });
 
   test('Sleep and resting HR can assess recovery without HRV', () {
@@ -95,7 +96,7 @@ void main() {
     expect(assessment.limiter, 'brain');
     expect(assessment.avoid, contains('Sparring'));
     expect(assessment.allowed, isNot(contains('Sparring')));
-    expect(RecoveryOverview.fromAssessment(assessment).score, lessThan(30));
+    expect(assessment.domains['brain']!.score, 0);
   });
 
   test('FightCamp mock uses normalized session model and personal baseline',
@@ -211,8 +212,7 @@ void main() {
         contains('long hard technical'));
   });
 
-  test('body restriction becomes primary limiter over equally restricted sleep',
-      () {
+  test('primary limiter uses the lowest measured domain score', () {
     final athlete = seededAthlete();
     athlete.sessions.add(TrainingSession(
         date: athlete.currentDay,
@@ -221,9 +221,13 @@ void main() {
         intensity: 'Moderate',
         soreness: ['Shoulders']));
     final result = RecoveryEngine().assess(athlete);
-    expect(result.domains['sleep']!.status, 'RESTRICTED');
+    expect(result.domains['sleep']!.score, isNotNull);
     expect(result.domains['body']!.status, 'RESTRICTED');
-    expect(result.limiter, 'body');
+    final lowest = result.domains.values
+        .map((domain) => domain.score)
+        .whereType<int>()
+        .reduce((a, b) => a < b ? a : b);
+    expect(result.domains[result.limiter]!.score, lowest);
   });
 
   test('severe pain safety overrides all four categories', () {
@@ -253,5 +257,167 @@ void main() {
     final result = RecoveryEngine().assess(athlete);
     expect(result.domains['body']!.status, 'INSUFFICIENT_DATA');
     expect(result.trainingGuidance['Strength']!.status, 'INSUFFICIENT_DATA');
+  });
+
+  test('six domain scores stay independent and missing HRV stays missing', () {
+    final athlete = seededAthlete();
+    athlete.wearables.removeWhere((sample) => sample.hrv != null);
+    for (var daysAgo = 7; daysAgo >= 0; daysAgo--) {
+      athlete.wearables.add(WearableSample(
+          date: localDay(DateTime.now().subtract(Duration(days: daysAgo))),
+          source: 'Test fixture',
+          mode: 'TEST',
+          restingHr: 50,
+          sleepMinutes: 430));
+    }
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.baselines['hrv']!.value, isNull);
+    expect(result.domains['sleep']!.score, isNotNull);
+    expect(result.domains['brain']!.score, isNotNull);
+    expect(result.snapshot(athlete.currentDay)['domainScores'], isA<Map>());
+  });
+
+  test('FightCamp punch count compares with best three of four prior days', () {
+    final athlete = AthleteData();
+    athlete.connections['fightcamp'] = 'MOCK_CONNECTED';
+    for (var daysAgo = 4; daysAgo >= 0; daysAgo--) {
+      athlete.fightCampSessions.add(FightCampSession(
+          date: localDay(DateTime.now().subtract(Duration(days: daysAgo))),
+          source: 'Fixture',
+          mode: 'DEMO',
+          sessionId: '$daysAgo',
+          count: daysAgo == 0 ? 78 : 100));
+    }
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.baselines['punch']!.value, 100);
+    expect(result.domains['power']!.score, lessThanOrEqualTo(50));
+    expect(result.limiter, 'power');
+    expect(result.trainingGuidance['Sparring']!.status, 'AVOID');
+  });
+
+  test('mind score reflects repeated low mood without a medical claim', () {
+    final athlete = AthleteData();
+    for (var daysAgo = 2; daysAgo >= 0; daysAgo--) {
+      athlete.saveMorning(MorningCheckIn(
+          date: localDay(DateTime.now().subtract(Duration(days: daysAgo))),
+          urine: 2,
+          mood: 'Low'));
+    }
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.domains['mind']!.score, 10);
+    expect(result.limiter, 'mind');
+  });
+
+  test('hand pain weighs more than shoulder soreness at the same severity', () {
+    AthleteData withPain(String area) => AthleteData()
+      ..sessions.add(TrainingSession(
+          date: localDay(),
+          type: 'Strength',
+          duration: 30,
+          intensity: 'Easy',
+          soreness: [area]));
+    final hand = RecoveryEngine().assess(withPain('Hands'));
+    final shoulder = RecoveryEngine().assess(withPain('Shoulders'));
+    expect(hand.domains['body']!.score,
+        lessThan(shoulder.domains['body']!.score!));
+  });
+
+  test('head safety takes limiter priority over simultaneous physical pain',
+      () {
+    final athlete = AthleteData();
+    athlete.saveMorning(MorningCheckIn(
+        date: localDay(),
+        urine: 2,
+        mood: 'OK',
+        headSymptoms: true,
+        soreness: ['Shoulders'],
+        painSeverity: 'Severe'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.limiter, 'brain');
+    expect(result.domains['brain']!.score, 0);
+    expect(result.trainingGuidance.values.every((e) => e.status == 'AVOID'),
+        isTrue);
+  });
+
+  test('head symptoms remain a safety stop after a symptom-free next morning',
+      () {
+    final athlete = AthleteData();
+    final yesterday =
+        localDay(DateTime.now().subtract(const Duration(days: 1)));
+    athlete.saveMorning(MorningCheckIn(
+        date: yesterday, urine: 2, mood: 'OK', headSymptoms: true));
+    athlete.saveMorning(MorningCheckIn(
+        date: localDay(), urine: 2, mood: 'Good', headSymptoms: false));
+
+    final restored = AthleteData.decode(athlete.encode());
+    final result = RecoveryEngine().assess(restored);
+    expect(result.safety.map((flag) => flag.code), contains('HEAD_FOLLOWUP'));
+    expect(result.domains['brain']!.score, 0);
+    expect(result.limiter, 'brain');
+    expect(result.trainingGuidance.values.every((e) => e.status == 'AVOID'),
+        isTrue);
+  });
+
+  test('old post-contact head pain remains flagged without a recent session',
+      () {
+    final athlete = AthleteData();
+    athlete.sessions.add(TrainingSession(
+        date: localDay(DateTime.now().subtract(const Duration(days: 10))),
+        type: 'Sparring',
+        duration: 18,
+        intensity: 'Moderate',
+        rounds: 6,
+        contact: 'Heavy',
+        soreness: ['Head'],
+        painSeverity: 'Painful'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.safety.map((flag) => flag.code), contains('HEAD_FOLLOWUP'));
+    expect(result.trainingGuidance['Sparring']!.status, 'AVOID');
+  });
+
+  test('self-reported external plan does not create app medical clearance', () {
+    final athlete = AthleteData();
+    final yesterday =
+        localDay(DateTime.now().subtract(const Duration(days: 1)));
+    athlete.saveMorning(MorningCheckIn(
+        date: yesterday, urine: 2, mood: 'OK', headSymptoms: true));
+    athlete
+        .saveMorning(MorningCheckIn(date: localDay(), urine: 2, mood: 'Good'));
+    athlete.headSafetyReviews.add(HeadSafetyReview(
+        incidentDate: yesterday, recordedAt: DateTime.now().toIso8601String()));
+
+    final restored = AthleteData.decode(athlete.encode());
+    expect(HeadSafetyTracker(restored).hasExternalPlan, isTrue);
+    final result = RecoveryEngine().assess(restored);
+    expect(result.safety.map((flag) => flag.code),
+        isNot(contains('HEAD_FOLLOWUP')));
+    expect(result.domains['brain']!.status, 'CAUTION');
+    expect(result.trainingGuidance['Sparring']!.status, 'MODIFIED');
+    expect(result.allowed, isNot(contains('Sparring')));
+    expect(result.allowed, isEmpty);
+    expect(result.trainingGuidance.values.every((e) => e.status != 'AVAILABLE'),
+        isTrue);
+  });
+
+  test('same-day review never removes head safety; new symptoms reopen it', () {
+    final athlete = AthleteData();
+    final yesterday =
+        localDay(DateTime.now().subtract(const Duration(days: 1)));
+    athlete.saveMorning(MorningCheckIn(
+        date: yesterday, urine: 2, mood: 'OK', headSymptoms: true));
+    athlete.headSafetyReviews.add(HeadSafetyReview(
+        incidentDate: yesterday, recordedAt: DateTime.now().toIso8601String()));
+    athlete.saveMorning(MorningCheckIn(
+        date: localDay(), urine: 2, mood: 'OK', headSymptoms: true));
+    expect(HeadSafetyTracker(athlete).hasExternalPlan, isFalse);
+    expect(RecoveryEngine().assess(athlete).safety.map((e) => e.code),
+        contains('HEAD_SYMPTOMS'));
+
+    athlete.headSafetyReviews.add(HeadSafetyReview(
+        incidentDate: localDay(),
+        recordedAt: DateTime.now().toIso8601String()));
+    expect(HeadSafetyTracker(athlete).planRecorded, isTrue);
+    expect(HeadSafetyTracker(athlete).needsProfessionalFollowUp, isTrue);
+    expect(RecoveryEngine().assess(athlete).domains['brain']!.score, 0);
   });
 }

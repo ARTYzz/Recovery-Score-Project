@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/boxer_controller.dart';
 import '../../domain/athlete_data.dart';
 import '../../domain/food_journal.dart';
+import '../../domain/head_safety_tracker.dart';
 import '../components.dart';
 import '../design.dart';
 
@@ -84,8 +85,18 @@ class _MorningScreenState extends State<MorningScreen> {
     final sleep = data?.latestSleepSample;
     final hrv = data?.latestMetricSample((sample) => sample.hrv);
     final restingHr = data?.latestMetricSample((sample) => sample.restingHr);
+    final pendingHeadFollowUp =
+        data != null && HeadSafetyTracker(data).needsProfessionalFollowUp;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const PageHeader(title: 'Morning Check-in', subtitle: 'About 20 seconds'),
+      if (pendingHeadFollowUp) ...[
+        const SizedBox(height: 16),
+        const AppCard(
+            color: Color(0xfffff5f3),
+            child: Text(
+                'A previous head-impact concern is still flagged. Answer today’s symptoms honestly; choosing No does not remove the safety restriction. Review the Brain screen after this check-in.',
+                style: TextStyle(color: AppColors.red, fontSize: 12))),
+      ],
       const SizedBox(height: 22),
       const FieldTitle('Watch data'),
       AppCard(
@@ -268,9 +279,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
             'Head',
             'Neck',
             'Shoulders',
+            'Hands',
+            'Wrists',
             'Arms',
             'Back',
-            'Legs'
+            'Lower back',
+            'Hips',
+            'Legs',
+            'Calves'
           ])
             Semantics(
                 label: area,

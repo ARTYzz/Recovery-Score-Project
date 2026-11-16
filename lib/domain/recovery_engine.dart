@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'athlete_data.dart';
+import 'head_safety_tracker.dart';
 
 const domainKeys = ['brain', 'fuel', 'sleep', 'power', 'body', 'mind'];
 const domainLabels = {
@@ -69,10 +70,11 @@ class CampClock {
 }
 
 class Baseline {
-  const Baseline(this.value, this.count, this.ready);
+  const Baseline(this.value, this.count, this.ready, {this.standardDeviation});
   final double? value;
   final int count;
   final bool ready;
+  final double? standardDeviation;
 }
 
 class PersonalBaseline {
@@ -82,16 +84,32 @@ class PersonalBaseline {
   Baseline wearable(double? Function(WearableSample) read) {
     final source = data.latestMetricSample(read)?.source;
     final daily = <String, double>{};
+    final cutoff =
+        localDay(data.currentDate.subtract(const Duration(days: 30)));
     for (final sample in data.wearables) {
-      if (source != null && sample.source != source) continue;
+      if (source != null && sample.source != source) {
+        continue;
+      }
+      if (sample.date.compareTo(cutoff) < 0 ||
+          sample.date.compareTo(data.currentDay) >= 0) {
+        continue;
+      }
       final value = read(sample);
-      if (value != null) daily[sample.date] = value;
+      if (value != null) {
+        daily[sample.date] = value;
+      }
     }
-    final values = daily.values.toList().reversed.take(10).toList();
-    return Baseline(
-        values.isEmpty ? null : values.reduce((a, b) => a + b) / values.length,
-        values.length,
-        values.length >= 7);
+    final dates = daily.keys.toList()..sort();
+    final values = dates.map((day) => daily[day]!).toList();
+    final mean =
+        values.isEmpty ? null : values.reduce((a, b) => a + b) / values.length;
+    final sd = mean == null || values.length < 2
+        ? null
+        : math.sqrt(values.fold<double>(
+                0, (sum, value) => sum + math.pow(value - mean, 2).toDouble()) /
+            values.length);
+    return Baseline(mean, values.length, values.length >= 7,
+        standardDeviation: sd);
   }
 
   Baseline punch() {
@@ -107,9 +125,18 @@ class PersonalBaseline {
         daily[session.date] = session.count!.toDouble();
       }
     }
-    final values = daily.values.toList().reversed.take(10).toList();
+    final cutoff =
+        localDay(data.currentDate.subtract(const Duration(days: 30)));
+    final values = daily.entries
+        .where((entry) =>
+            entry.key.compareTo(cutoff) >= 0 &&
+            entry.key.compareTo(data.currentDay) < 0)
+        .map((entry) => entry.value)
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    final best = values.take(3).toList();
     return Baseline(
-        values.isEmpty ? null : values.reduce((a, b) => a + b) / values.length,
+        best.isEmpty ? null : best.reduce((a, b) => a + b) / best.length,
         values.length,
         values.length >= 4);
   }
@@ -126,11 +153,20 @@ class SafetyGate {
   List<SafetyFlag> evaluate(AthleteData data) {
     final check =
         data.latestCheckIn?.date == data.currentDay ? data.latestCheckIn : null;
+    final head = HeadSafetyTracker(data);
     final recent = RecentTraining(data, 7);
     final flags = <SafetyFlag>[];
-    if (check?.headSymptoms == true) {
-      flags.add(const SafetyFlag('HEAD_SYMPTOMS', 'brain',
-          'New symptoms after head contact. Avoid sparring and other head-impact training. Seek qualified medical evaluation.'));
+    if (head.needsProfessionalFollowUp) {
+      if (head.newSymptomsToday) {
+        flags.add(const SafetyFlag('HEAD_SYMPTOMS', 'brain',
+            'New symptoms after head contact. Pause training, avoid further head impact, and seek qualified medical evaluation.'));
+      } else if (head.headPainToday) {
+        flags.add(const SafetyFlag('HEAD_PAIN', 'brain',
+            'Head pain was reported after contact. Pause training and seek qualified medical evaluation.'));
+      } else {
+        flags.add(SafetyFlag('HEAD_FOLLOWUP', 'brain',
+            'Head-impact concern reported on ${head.latestIncidentDate} still needs professional follow-up. A symptom-free check-in does not remove this restriction.'));
+      }
     }
     if (recent.sessions
             .where((e) => e.type == 'Sparring' && e.contact == 'Heavy')
@@ -146,14 +182,6 @@ class SafetyGate {
       flags.add(const SafetyFlag('PHYSICAL', 'body',
           'Severe pain reported. Avoid loading the affected area and seek appropriate professional assessment.'));
     }
-    if (RecentTraining(data, 2).sessions.any((e) =>
-        e.type == 'Sparring' &&
-        e.contact != 'None' &&
-        e.soreness.contains('Head') &&
-        e.painSeverity != 'Sore')) {
-      flags.add(const SafetyFlag('HEAD_PAIN', 'brain',
-          'Head pain was reported after contact. Avoid sparring and head-impact activity, and seek qualified medical evaluation.'));
-    }
     if ((check?.urine ?? 0) >= 4) {
       flags.add(const SafetyFlag('HYDRATION', 'fuel',
           'A dark urine-colour report may signal a hydration concern. Prioritize hydration awareness and professional support if symptoms persist.'));
@@ -165,10 +193,11 @@ class SafetyGate {
       final priorDay = parsedDay(prior.date);
       if (currentDay != null &&
           priorDay != null &&
-          currentDay.difference(priorDay).inDays <= 2 &&
+          currentDay.difference(priorDay).inDays == 1 &&
           current.weight != null &&
           prior.weight != null &&
-          (current.weight! - prior.weight!).abs() >= 1.5) {
+          prior.weight! > 0 &&
+          (current.weight! - prior.weight!).abs() / prior.weight! > .015) {
         flags.add(const SafetyFlag('WEIGHT_CHANGE', 'fuel',
             'A sudden weight change was recorded. Review hydration and seek qualified support if this is unexpected or accompanied by symptoms.'));
       }
@@ -199,17 +228,213 @@ class RecentTraining {
       ofType(type).fold(0, (sum, session) => sum + session.duration);
 
   bool hasArea(String area) => sessions.any((e) => e.soreness.contains(area));
-  bool get upperSoreness => ['Shoulders', 'Arms', 'Neck', 'Back'].any(hasArea);
-  bool get lowerSoreness => ['Legs', 'Back'].any(hasArea);
+  bool get upperSoreness =>
+      ['Shoulders', 'Arms', 'Hands', 'Wrists', 'Neck', 'Back'].any(hasArea);
+  bool get lowerSoreness =>
+      ['Legs', 'Calves', 'Hips', 'Back', 'Lower back'].any(hasArea);
   bool get painful => sessions.any((e) =>
       e.soreness.isNotEmpty &&
       (e.painSeverity == 'Painful' || e.painSeverity == 'Severe'));
 }
 
 class DomainResult {
-  const DomainResult(this.status, this.reasons);
+  const DomainResult(this.status, this.reasons, {this.score});
   final String status;
   final List<String> reasons;
+  final int? score;
+}
+
+/// Scores only observed inputs. A missing measurement remains null, never zero.
+/// These are training-support indicators, not medical measurements or clearance.
+class DomainScorer {
+  const DomainScorer();
+
+  int? score(String key, AthleteData data, Map<String, Baseline> baselines,
+      List<SafetyFlag> safety) {
+    final check =
+        data.latestCheckIn?.date == data.currentDay ? data.latestCheckIn : null;
+    final recent = RecentTraining(data, 7);
+    int? value;
+    switch (key) {
+      case 'brain':
+        if (check == null && recent.ofType('Sparring').isEmpty) {
+          break;
+        }
+        var penalty = 0.0;
+        for (final session in recent.ofType('Sparring')) {
+          final age =
+              data.currentDate.difference(parsedDay(session.date)!).inDays;
+          final contact = switch (session.contact) {
+            'Heavy' => 3.0,
+            'Moderate' => 1.8,
+            'Light' => 0.8,
+            _ => 0.0,
+          };
+          penalty +=
+              math.min(session.rounds, 12) * contact * math.exp(-age / 3.0);
+        }
+        value = (100 - penalty).round().clamp(0, 100);
+      case 'fuel':
+        final nutrition = data.latestNutrition?.date == data.currentDay
+            ? data.latestNutrition
+            : null;
+        final parts = <(double, double)>[];
+        if (check != null) {
+          parts.add((
+            switch (check.urine) {
+              <= 2 => 100.0,
+              3 => 85.0,
+              4 => 55.0,
+              _ => 20.0,
+            },
+            0.5
+          ));
+          final prior = data.checkins
+              .where((e) =>
+                  e.date.compareTo(data.currentDay) < 0 && e.weight != null)
+              .toList();
+          if (check.weight != null && prior.isNotEmpty) {
+            final previous = prior.last;
+            final days =
+                data.currentDate.difference(parsedDay(previous.date)!).inDays;
+            if (days == 1) {
+              final change =
+                  (check.weight! - previous.weight!).abs() / previous.weight!;
+              parts.add((change > .015 ? 35.0 : 100.0, 0.15));
+            }
+          }
+        }
+        if (nutrition != null) {
+          final routine = (nutrition.meal == 'Yes' ? 40 : 0) +
+              (nutrition.protein == 'Yes' ? 35 : 0) +
+              (nutrition.carbs == 'Low'
+                  ? 5
+                  : nutrition.carbs == 'Medium'
+                      ? 20
+                      : 25);
+          parts.add((routine.toDouble(), 0.35));
+        }
+        value = _weighted(parts);
+      case 'sleep':
+        final parts = <(double, double)>[];
+        final hrv = data.latestMetricSample((e) => e.hrv);
+        final rhr = data.latestMetricSample((e) => e.restingHr);
+        final sleep = data.latestSleepSample;
+        final hrvBase = baselines['hrv']!;
+        final rhrBase = baselines['restingHr']!;
+        final sleepBase = baselines['sleep']!;
+        if (hrv?.date == data.currentDay && hrv?.hrv != null && hrvBase.ready) {
+          // HealthKit HRV is SDNN; do not apply an rMSSD-specific threshold.
+          final sd =
+              math.max(hrvBase.standardDeviation ?? 0, hrvBase.value! * .08);
+          final z = (hrv!.hrv! - hrvBase.value!) / sd;
+          parts.add(((80 + z * 20).round().clamp(0, 100).toDouble(), .40));
+        }
+        if (rhr?.date == data.currentDay &&
+            rhr?.restingHr != null &&
+            rhrBase.ready) {
+          final delta = rhr!.restingHr! - rhrBase.value!;
+          parts.add(((90 - delta * 8).round().clamp(0, 100).toDouble(), .30));
+        }
+        if (sleep?.date == data.currentDay &&
+            sleep?.sleepMinutes != null &&
+            sleepBase.ready) {
+          final ratio = sleep!.sleepMinutes! / sleepBase.value!;
+          parts.add(((ratio * 90).round().clamp(0, 100).toDouble(), .30));
+        }
+        value = _weighted(parts);
+      case 'power':
+        final punch = data.connections['fightcamp'] == 'MOCK_CONNECTED' ||
+                data.connections['fightcamp'] == 'CONNECTED'
+            ? data.latestFightCamp
+            : null;
+        final base = baselines['punch']!;
+        if (punch?.date != data.currentDay ||
+            punch?.count == null ||
+            !base.ready) {
+          break;
+        }
+        final ratio = punch!.count! / base.value!;
+        value = ratio >= .96
+            ? (90 + (ratio - .96) * 100).round().clamp(90, 100)
+            : ratio >= .90
+                ? (65 + (ratio - .90) / .06 * 15).round().clamp(65, 80)
+                : (ratio / .90 * 50).round().clamp(0, 50);
+      case 'body':
+        final sessions = RecentTraining(data, 2).sessions;
+        if (check == null && sessions.isEmpty) {
+          break;
+        }
+        var penalty = 0.0;
+        final areas = <String>{
+          if (check != null) ...check.soreness,
+          for (final session in sessions) ...session.soreness,
+        };
+        final severity = check?.painSeverity == 'Severe' ||
+                sessions.any((e) => e.painSeverity == 'Severe')
+            ? 60.0
+            : check?.painSeverity == 'Painful' ||
+                    sessions.any((e) => e.painSeverity == 'Painful')
+                ? 40.0
+                : 25.0;
+        for (final area in areas) {
+          penalty += severity *
+              (['Head', 'Neck', 'Hands', 'Wrists'].contains(area) ? 1.5 : 1);
+        }
+        if (sessions.any((e) => e.duration >= 60 && e.intensity == 'Hard')) {
+          penalty += 25;
+        }
+        if (sessions.any((e) =>
+            e.type == 'Strength' && e.duration >= 60 && areas.isNotEmpty)) {
+          penalty += 30;
+        }
+        value = (100 - penalty).round().clamp(0, 100);
+      case 'mind':
+        if (check == null) {
+          break;
+        }
+        value = switch (check.mood) {
+          'Good' => 100,
+          'OK' => 75,
+          'Flat' => 45,
+          'Low' => 25,
+          _ => null,
+        };
+        final recentMoods = data.checkins.where((e) {
+          final day = parsedDay(e.date);
+          return day != null &&
+              data.currentDate.difference(day).inDays < 3 &&
+              data.currentDate.difference(day).inDays >= 0;
+        }).toList();
+        if (value != null &&
+            recentMoods.length >= 3 &&
+            recentMoods.every((e) => e.mood == 'Flat' || e.mood == 'Low')) {
+          value = math.max(0, value - 15);
+        }
+    }
+    for (final flag in safety.where((e) => e.domain == key)) {
+      final cap = flag.code == 'HEAD_SYMPTOMS' ||
+              flag.code == 'HEAD_PAIN' ||
+              flag.code == 'HEAD_FOLLOWUP'
+          ? 0
+          : 39;
+      value = math.min(value ?? cap, cap);
+    }
+    if (key == 'brain' && HeadSafetyTracker(data).hasExternalPlan) {
+      // A self-reported external plan does not make this app a clearance tool.
+      value = math.min(value ?? 79, 79);
+    }
+    return value;
+  }
+
+  int? _weighted(List<(double, double)> parts) {
+    if (parts.isEmpty) return null;
+    final weight = parts.fold<double>(0, (sum, part) => sum + part.$2);
+    return (parts.fold<double>(0, (sum, part) => sum + part.$1 * part.$2) /
+            weight)
+        .round()
+        .clamp(0, 100);
+  }
 }
 
 class RecoveryAction {
@@ -244,12 +469,23 @@ class TrainingAdvisor {
     final conditioning = recent.ofType('Conditioning');
     final upperPain = recent.upperSoreness ||
         (data.latestCheckIn?.date == data.currentDay &&
-            data.latestCheckIn!.soreness.any((area) =>
-                ['Shoulders', 'Arms', 'Neck', 'Back'].contains(area)));
+            data.latestCheckIn!.soreness.any((area) => [
+                  'Shoulders',
+                  'Arms',
+                  'Hands',
+                  'Wrists',
+                  'Neck',
+                  'Back'
+                ].contains(area)));
     final lowerPain = recent.lowerSoreness ||
         (data.latestCheckIn?.date == data.currentDay &&
-            data.latestCheckIn!.soreness
-                .any((area) => ['Legs', 'Back'].contains(area)));
+            data.latestCheckIn!.soreness.any((area) => [
+                  'Legs',
+                  'Calves',
+                  'Hips',
+                  'Back',
+                  'Lower back'
+                ].contains(area)));
     final seriousPain = recent.painful ||
         (data.latestCheckIn?.date == data.currentDay &&
             ['Moderate', 'Severe'].contains(data.latestCheckIn!.painSeverity));
@@ -266,11 +502,16 @@ class TrainingAdvisor {
             .where((domain) => domain.status != 'INSUFFICIENT_DATA')
             .length >=
         4;
-    final headConcern = safety.any(
-        (flag) => flag.code == 'HEAD_SYMPTOMS' || flag.code == 'HEAD_PAIN');
+    final headConcern = safety.any((flag) =>
+        flag.code == 'HEAD_SYMPTOMS' ||
+        flag.code == 'HEAD_PAIN' ||
+        flag.code == 'HEAD_FOLLOWUP');
+    final headPlan = HeadSafetyTracker(data).hasExternalPlan;
     final headLoad = safety.any((flag) => flag.code == 'HEAD_LOAD');
     final hydrationConcern = safety.any(
         (flag) => flag.code == 'HYDRATION' || flag.code == 'WEIGHT_CHANGE');
+    final fuelRestricted = domains['fuel']?.status == 'RESTRICTED';
+    final powerRestricted = domains['power']?.status == 'RESTRICTED';
     final severePhysical = safety.any((flag) => flag.code == 'PHYSICAL');
     const unknown = TrainingAdvice('INSUFFICIENT_DATA', 'More data needed',
         'Complete the check-in and build a personal baseline before a positive training suggestion.');
@@ -304,7 +545,9 @@ class TrainingAdvisor {
     final advice = <String, TrainingAdvice>{};
     if (headLoad ||
         domains['brain']!.status == 'RESTRICTED' ||
-        camp.phase == 'FIGHT_WEEK') {
+        camp.phase == 'FIGHT_WEEK' ||
+        powerRestricted ||
+        fuelRestricted) {
       advice['Sparring'] = TrainingAdvice(
           'AVOID',
           'Avoid sparring today',
@@ -312,8 +555,18 @@ class TrainingAdvisor {
               ? 'Repeated heavy head contact was logged in the last 7 days.'
               : camp.phase == 'FIGHT_WEEK'
                   ? 'Fight-week plan favours avoiding sparring.'
-                  : domains['brain']!.reasons.join(' · '),
+                  : powerRestricted
+                      ? 'Punch output is below your personal FightCamp baseline.'
+                      : fuelRestricted
+                          ? 'Fuel signals need attention before high-intensity contact.'
+                          : domains['brain']!.reasons.join(' · '),
           avoidLabel: 'Sparring');
+    } else if (headPlan) {
+      advice['Sparring'] = const TrainingAdvice(
+          'MODIFIED',
+          'Follow your clinician\'s return-to-contact plan',
+          'An external plan was self-reported. This app cannot verify it or decide when sparring is safe.',
+          avoidLabel: 'Unsupervised sparring');
     } else if (upperPain && (seriousPain || longStrength)) {
       advice['Sparring'] = const TrainingAdvice('AVOID', 'Skip sparring today',
           'Shoulder, arm, neck or back pain after training can limit safe defence and punching.',
@@ -345,8 +598,16 @@ class TrainingAdvisor {
           'Upper-body pain after training makes further punching load a poor choice today.',
           allowedLabel: 'No-contact footwork',
           avoidLabel: 'Pads and bag work with upper-body pain');
+    } else if (headPlan && !headLoad) {
+      advice['Boxing / Technical'] = const TrainingAdvice(
+          'MODIFIED',
+          'Follow the clinician\'s activity plan',
+          'Use only activity allowed by your external return-to-training plan. The app does not provide clearance.',
+          avoidLabel: 'Unplanned head-contact drills');
     } else if (headLoad ||
         hydrationConcern ||
+        fuelRestricted ||
+        powerRestricted ||
         (hardTechnical && longTechnical) ||
         domains['body']!.status == 'CAUTION') {
       advice['Boxing / Technical'] = TrainingAdvice(
@@ -354,11 +615,13 @@ class TrainingAdvisor {
           'Keep technical work light',
           headLoad
               ? 'Keep drills strictly no-contact after repeated head contact.'
-              : hydrationConcern
-                  ? 'Hydration or weight trend needs attention before hard technical work.'
-                  : hardTechnical && longTechnical
-                      ? 'A long hard technical session was logged recently.'
-                      : domains['body']!.reasons.join(' · '),
+              : powerRestricted
+                  ? 'Punch output is below your personal baseline; keep technique slow and no-contact.'
+                  : hydrationConcern || fuelRestricted
+                      ? 'Hydration or weight trend needs attention before hard technical work.'
+                      : hardTechnical && longTechnical
+                          ? 'A long hard technical session was logged recently.'
+                          : domains['body']!.reasons.join(' · '),
           allowedLabel: 'Light no-contact technique',
           avoidLabel: 'Hard pads or bag work');
     } else {
@@ -378,13 +641,14 @@ class TrainingAdvisor {
     } else if ((hardConditioning && longConditioning) ||
         domains['sleep']!.status == 'RESTRICTED' ||
         hydrationConcern ||
+        fuelRestricted ||
         (lowerPain && longConditioning)) {
       advice['Conditioning'] = TrainingAdvice(
           'MODIFIED',
           'Easy aerobic work only',
           hardConditioning && longConditioning
               ? 'A long hard conditioning session was logged recently; skip another interval session.'
-              : hydrationConcern
+              : hydrationConcern || fuelRestricted
                   ? 'Hydration or weight trend needs attention before hard conditioning.'
                   : lowerPain
                       ? 'Leg or back soreness was reported after a long session.'
@@ -410,13 +674,14 @@ class TrainingAdvisor {
         upperPain ||
         lowerPain ||
         hydrationConcern ||
+        fuelRestricted ||
         domains['sleep']!.status == 'RESTRICTED') {
       advice['Strength'] = TrainingAdvice(
           'MODIFIED',
           'Skip heavy lifting today',
           upperPain || lowerPain
               ? 'Soreness was reported; avoid loading the sore area.'
-              : hydrationConcern
+              : hydrationConcern || fuelRestricted
                   ? 'Hydration or weight trend needs attention before heavy lifting.'
                   : longStrength || hardStrength
                       ? 'A long or hard strength session was logged recently.'
@@ -429,6 +694,18 @@ class TrainingAdvisor {
               'No specific strength-load restriction appears in the available data.',
               allowedLabel: 'Strength')
           : unknown;
+    }
+    if (headPlan) {
+      for (final type in ['Boxing / Technical', 'Conditioning', 'Strength']) {
+        final current = advice[type]!;
+        if (current.status == 'AVOID') continue;
+        advice[type] = TrainingAdvice(
+            'MODIFIED',
+            'Follow your clinician\'s activity plan',
+            '${current.reason} An external plan was self-reported; the app cannot verify it or clear this activity.',
+            avoidLabel:
+                current.avoidLabel ?? 'Training outside the clinician plan');
+      }
     }
     return advice;
   }
@@ -445,7 +722,8 @@ class Assessment {
       required this.avoid,
       required this.trainingGuidance,
       required this.action,
-      required this.baselines});
+      required this.baselines,
+      required this.hasCurrentWearable});
   final CampState camp;
   final Map<String, DomainResult> domains;
   final List<SafetyFlag> safety;
@@ -456,6 +734,7 @@ class Assessment {
   final Map<String, TrainingAdvice> trainingGuidance;
   final RecoveryAction action;
   final Map<String, Baseline> baselines;
+  final bool hasCurrentWearable;
 
   int get assessedCount =>
       domains.values.where((e) => e.status != 'INSUFFICIENT_DATA').length;
@@ -463,16 +742,14 @@ class Assessment {
   // Sleep & Heart still needs a personal baseline for training guidance.
   int get observedCount =>
       assessedCount +
-      (domains['sleep']?.status == 'INSUFFICIENT_DATA' &&
-              ((baselines['sleep']?.count ?? 0) > 0 ||
-                  (baselines['hrv']?.count ?? 0) > 0 ||
-                  (baselines['restingHr']?.count ?? 0) > 0)
+      (domains['sleep']?.status == 'INSUFFICIENT_DATA' && hasCurrentWearable
           ? 1
           : 0);
   Map<String, dynamic> snapshot(String day) => {
         'date': day,
         'limiter': limiter,
         'domains': domains.map((key, value) => MapEntry(key, value.status)),
+        'domainScores': domains.map((key, value) => MapEntry(key, value.score)),
         'safety': safety.map((e) => e.code).toList(),
       };
 }
@@ -604,8 +881,18 @@ class RecoveryEngine {
         .ofType('Boxing / Technical')
         .any((e) => e.duration >= 60 && e.intensity == 'Hard');
     final soreAfterLongStrength = longStrength &&
-        soreAreas.any((area) =>
-            ['Shoulders', 'Arms', 'Neck', 'Back', 'Legs'].contains(area));
+        soreAreas.any((area) => [
+              'Shoulders',
+              'Arms',
+              'Hands',
+              'Wrists',
+              'Neck',
+              'Back',
+              'Lower back',
+              'Hips',
+              'Legs',
+              'Calves'
+            ].contains(area));
     final painful = recent.painful || check?.painSeverity == 'Severe';
     if (soreAreas.isNotEmpty || longStrength || longTechnical) {
       final reasons = <String>[
@@ -625,13 +912,39 @@ class RecoveryEngine {
     for (final flag in safety) {
       domains[flag.domain] = DomainResult('RESTRICTED', [flag.message]);
     }
+    if (HeadSafetyTracker(data).hasExternalPlan &&
+        !safety.any((flag) => flag.domain == 'brain')) {
+      domains['brain'] = const DomainResult('CAUTION', [
+        'External professional plan self-reported. The app cannot verify it or clear contact training.'
+      ]);
+    }
 
-    const rank = {
-      'INSUFFICIENT_DATA': 0,
-      'READY': 1,
-      'CAUTION': 2,
-      'RESTRICTED': 3
+    final baselines = {
+      'hrv': hrv,
+      'restingHr': rhr,
+      'sleep': sleep,
+      'punch': punchBaseline,
     };
+    const scorer = DomainScorer();
+    for (final key in domainKeys) {
+      final previous = domains[key]!;
+      var score = scorer.score(key, data, baselines, safety);
+      if (key == 'power' && score != null && hardPowerLoad) {
+        score = math.min(score, 75);
+      }
+      final hasSafety = safety.any((flag) => flag.domain == key);
+      final status = hasSafety
+          ? 'RESTRICTED'
+          : score == null
+              ? 'INSUFFICIENT_DATA'
+              : score < 50
+                  ? 'RESTRICTED'
+                  : score < 80
+                      ? 'CAUTION'
+                      : 'READY';
+      domains[key] = DomainResult(status, previous.reasons, score: score);
+    }
+
     const tiePriority = {
       'brain': 6,
       'body': 5,
@@ -640,14 +953,19 @@ class RecoveryEngine {
       'power': 2,
       'mind': 1
     };
-    String? limiter = safety.isNotEmpty ? safety.first.domain : null;
+    String? limiter = safety.any((flag) => flag.domain == 'brain')
+        ? 'brain'
+        : safety.isNotEmpty
+            ? safety.first.domain
+            : null;
     if (limiter == null) {
       for (final key in domainKeys) {
-        final status = domains[key]!.status;
-        if ((rank[status] ?? 0) >= 2 &&
+        final score = domains[key]!.score;
+        if (score != null &&
+            score < 80 &&
             (limiter == null ||
-                rank[status]! > rank[domains[limiter]!.status]! ||
-                (rank[status] == rank[domains[limiter]!.status] &&
+                score < domains[limiter]!.score! ||
+                (score == domains[limiter]!.score &&
                     tiePriority[key]! > tiePriority[limiter]!))) {
           limiter = key;
         }
@@ -662,24 +980,30 @@ class RecoveryEngine {
       for (final advice in guidance.values)
         if (advice.avoidLabel != null) advice.avoidLabel!
     };
-    final sleepStatus = domains['sleep']!.status;
-    final action = ['CAUTION', 'RESTRICTED'].contains(sleepStatus)
-        ? const RecoveryAction('breathing', '10 min breathing down-regulation',
-            'Sleep & Heart needs attention today.', 600)
-        : domains['body']!.status == 'RESTRICTED'
-            ? const RecoveryAction(
-                'early-bed',
-                'Prepare for an earlier bedtime',
-                'Body pain or heavy load was reported; avoid adding more load tonight.',
-                600)
-            : domains['body']!.status == 'CAUTION'
-                ? const RecoveryAction('mobility', '10 min gentle mobility',
-                    'Body soreness is present today.', 600)
-                : const RecoveryAction(
-                    'early-bed',
-                    'Prepare for an earlier bedtime',
-                    'Protect recovery before tomorrow.',
-                    600);
+    final action = switch (limiter) {
+      'brain' => const RecoveryAction(
+          'early-bed',
+          'Prepare for a quiet evening',
+          'Head-impact concern is the priority. Follow the safety guidance and avoid further contact.',
+          600),
+      'sleep' || 'mind' => RecoveryAction(
+          'breathing',
+          '10 min breathing down-regulation',
+          '${domainLabels[limiter]} needs attention today.',
+          600),
+      'body' when domains['body']!.status == 'CAUTION' => const RecoveryAction(
+          'mobility',
+          '10 min gentle mobility',
+          'Body soreness is present today. Avoid painful movement.',
+          600),
+      'fuel' => const RecoveryAction(
+          'early-bed',
+          'Plan a regular recovery meal',
+          'Fuel or hydration signals need attention. Follow your usual safe nutrition plan.',
+          600),
+      _ => const RecoveryAction('early-bed', 'Prepare for an earlier bedtime',
+          'Protect recovery before tomorrow.', 600),
+    };
     final assessed =
         domains.values.where((e) => e.status != 'INSUFFICIENT_DATA').length;
     return Assessment(
@@ -696,67 +1020,10 @@ class RecoveryEngine {
       avoid: avoid.toList(),
       trainingGuidance: guidance,
       action: action,
-      baselines: {
-        'hrv': hrv,
-        'restingHr': rhr,
-        'sleep': sleep,
-        'punch': punchBaseline
-      },
+      baselines: baselines,
+      hasCurrentWearable: [sleepWear, hrvWear, rhrWear]
+          .any((sample) => sample?.date == data.currentDay),
     );
-  }
-}
-
-class RecoveryOverview {
-  const RecoveryOverview(this.score, this.label, this.tone, this.explanation);
-  final int? score;
-  final String label;
-  final String tone;
-  final String explanation;
-
-  factory RecoveryOverview.fromAssessment(Assessment assessment) {
-    final assessed = assessment.assessedCount;
-    final baselineReady = assessment.baselines['hrv']!.ready ||
-        assessment.baselines['sleep']!.ready;
-    final hasSafety = assessment.safety.isNotEmpty;
-    if (assessed < 4 || !baselineReady) {
-      return RecoveryOverview(
-          null,
-          hasSafety ? 'SAFETY' : 'LEARNING',
-          hasSafety ? 'safety' : 'learning',
-          hasSafety
-              ? 'Safety concern reported. Review restrictions below.'
-              : '$assessed of 6 domains assessed · Learning your baseline');
-    }
-    const points = {'READY': 90, 'CAUTION': 55, 'RESTRICTED': 20};
-    final raw = (assessment.domains.values
-                .fold<int>(0, (sum, e) => sum + (points[e.status] ?? 0)) /
-            assessed)
-        .round();
-    final restricted =
-        assessment.domains.values.any((e) => e.status == 'RESTRICTED');
-    final score = hasSafety
-        ? math.min(raw, 29)
-        : restricted
-            ? math.min(raw, 39)
-            : raw;
-    final tone = hasSafety
-        ? 'safety'
-        : score < 40
-            ? 'low'
-            : score < 70
-                ? 'caution'
-                : 'ready';
-    return RecoveryOverview(
-        score,
-        hasSafety
-            ? 'SAFETY'
-            : tone == 'low'
-                ? 'LOW'
-                : tone == 'caution'
-                    ? 'CAUTION'
-                    : 'READY',
-        tone,
-        '$assessed of 6 domains assessed · See each domain below');
   }
 }
 
@@ -793,26 +1060,35 @@ class FeedbackService {
             'resting HR ${rhr >= 0 ? '+' : ''}${rhr.toStringAsFixed(0)} bpm');
       }
       if (next['mood'] is String) details.add('mood ${next['mood']}');
-      final domain =
-          next['domains'] is Map ? (next['domains'] as Map)['sleep'] : null;
+      final targetDelta = numberOrNull(next['targetScoreDelta']);
+      if (targetDelta != null && records.last.targetDomain != null) {
+        details.add(
+            '${domainLabels[records.last.targetDomain]} ${targetDelta >= 0 ? '+' : ''}${targetDelta.toStringAsFixed(0)} points');
+      }
+      final targetDomain = records.last.targetDomain ?? 'sleep';
+      final domain = next['domains'] is Map
+          ? (next['domains'] as Map)[targetDomain]
+          : null;
       if (domain is String) {
-        details
-            .add('Sleep & Heart ${domain.toLowerCase().replaceAll('_', ' ')}');
+        details.add(
+            '${domainLabels[targetDomain]} ${domain.toLowerCase().replaceAll('_', ' ')}');
       }
       return FeedbackInsight('Not Enough Data',
           'Next morning: ${details.isEmpty ? 'wearable data unavailable' : details.join(' · ')}. More observations are needed; this does not show cause.');
     }
+    final target = records.last.targetDomain;
     final values = records
-        .map((e) => numberOrNull(e.nextDay?['hrvDelta']))
+        .where((e) => e.targetDomain == target)
+        .map((e) => numberOrNull(e.nextDay?['targetScoreDelta']))
         .whereType<double>()
         .toList();
-    if (values.isEmpty) {
-      return const FeedbackInsight(
-          'Not Enough Data', 'Following-day HRV is unavailable.');
+    if (values.length < 3) {
+      return const FeedbackInsight('Not Enough Data',
+          'At least three comparable next-day domain scores are needed.');
     }
     final average = values.reduce((a, b) => a + b) / values.length;
     return FeedbackInsight(
-        average > 4 ? 'Possible Benefit' : 'No Clear Pattern',
-        'Across ${records.length} observations, following-day HRV differed by ${average.toStringAsFixed(1)} ms on average. This is an association, not proof of cause.');
+        average > 5 ? 'Possible Benefit' : 'No Clear Pattern',
+        'Across ${values.length} observations, the targeted domain changed by ${average >= 0 ? '+' : ''}${average.toStringAsFixed(1)} points the next morning on average. This is an association, not proof of cause.');
   }
 }

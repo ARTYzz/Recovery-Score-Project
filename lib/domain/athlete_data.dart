@@ -157,6 +157,27 @@ class MorningCheckIn {
       };
 }
 
+/// Self-reported record of an external professional return-to-contact plan.
+/// It is not verification or medical clearance by this app.
+class HeadSafetyReview {
+  const HeadSafetyReview(
+      {required this.incidentDate, required this.recordedAt});
+
+  final String incidentDate;
+  final String recordedAt;
+
+  factory HeadSafetyReview.fromJson(Map<String, dynamic> json) =>
+      HeadSafetyReview(
+        incidentDate: json['incidentDate'] as String? ?? '',
+        recordedAt: json['recordedAt'] as String? ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'incidentDate': incidentDate,
+        'recordedAt': recordedAt,
+      };
+}
+
 class TrainingSession {
   TrainingSession(
       {required this.date,
@@ -282,11 +303,15 @@ class RecoveryActionLog {
       required this.date,
       required this.startedAt,
       required this.completedAt,
+      this.targetDomain,
+      this.targetScore,
       this.nextDay});
   final String id;
   final String date;
   final String startedAt;
   final String completedAt;
+  final String? targetDomain;
+  final int? targetScore;
   Map<String, dynamic>? nextDay;
   factory RecoveryActionLog.fromJson(Map<String, dynamic> json) =>
       RecoveryActionLog(
@@ -294,6 +319,8 @@ class RecoveryActionLog {
         date: json['date'] as String? ?? '',
         startedAt: json['startedAt'] as String? ?? '',
         completedAt: json['completedAt'] as String? ?? '',
+        targetDomain: json['targetDomain'] as String?,
+        targetScore: intOrNull(json['targetScore']),
         nextDay: json['nextDay'] is Map
             ? Map<String, dynamic>.from(json['nextDay'] as Map)
             : null,
@@ -303,6 +330,8 @@ class RecoveryActionLog {
         'date': date,
         'startedAt': startedAt,
         'completedAt': completedAt,
+        'targetDomain': targetDomain,
+        'targetScore': targetScore,
         'nextDay': nextDay
       };
 }
@@ -324,6 +353,7 @@ class AthleteData {
   final Map<String, String> connections = {};
   final List<WearableSample> wearables = [];
   final List<MorningCheckIn> checkins = [];
+  final List<HeadSafetyReview> headSafetyReviews = [];
   final List<TrainingSession> sessions = [];
   final List<NutritionCheck> nutrition = [];
   final List<FoodMeal> foodMeals = [];
@@ -389,6 +419,8 @@ class AthleteData {
 
     load('wearables', data.wearables, WearableSample.fromJson);
     load('checkins', data.checkins, MorningCheckIn.fromJson);
+    load(
+        'headSafetyReviews', data.headSafetyReviews, HeadSafetyReview.fromJson);
     load('sessions', data.sessions, TrainingSession.fromJson);
     load('nutrition', data.nutrition, NutritionCheck.fromJson);
     load('foodMeals', data.foodMeals, FoodMeal.fromJson);
@@ -410,6 +442,7 @@ class AthleteData {
         'connections': connections,
         'wearables': wearables.map((e) => e.toJson()).toList(),
         'checkins': checkins.map((e) => e.toJson()).toList(),
+        'headSafetyReviews': headSafetyReviews.map((e) => e.toJson()).toList(),
         'sessions': sessions.map((e) => e.toJson()).toList(),
         'nutrition': nutrition.map((e) => e.toJson()).toList(),
         'foodMeals': foodMeals.map((e) => e.toJson()).toList(),

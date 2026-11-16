@@ -9,6 +9,7 @@ class MockFightCampSource {
     data.connections['fightcamp'] = 'MOCK_CONNECTED';
     final now = at ?? DateTime.now();
     const samples = [
+      (12, 62, 8.0, 76, 5),
       (9, 63, 8.1, 77, 5),
       (6, 61, 7.9, 74, 6),
       (3, 64, 8.3, 79, 5),

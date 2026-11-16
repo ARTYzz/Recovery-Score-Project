@@ -57,16 +57,19 @@ class HuaweiAppleHealthSource {
 class HealthReadSummary {
   const HealthReadSummary({
     required this.checkedAt,
+    required this.huaweiRecords,
     required this.huaweiHrvRecords,
     required this.otherHrvRecords,
   });
 
   final DateTime checkedAt;
+  final int huaweiRecords;
   final int huaweiHrvRecords;
   final int otherHrvRecords;
 
   factory HealthReadSummary.fromPoints(List<HealthDataPoint> points,
       {required DateTime checkedAt}) {
+    final huaweiRecords = points.where(HuaweiHealthNormalizer.isHuawei).length;
     var huaweiHrv = 0;
     var otherHrv = 0;
     for (final point in points) {
@@ -83,6 +86,7 @@ class HealthReadSummary {
     }
     return HealthReadSummary(
         checkedAt: checkedAt,
+        huaweiRecords: huaweiRecords,
         huaweiHrvRecords: huaweiHrv,
         otherHrvRecords: otherHrv);
   }

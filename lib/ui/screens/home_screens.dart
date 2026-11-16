@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../app/boxer_controller.dart';
 import '../../domain/recovery_engine.dart';
+import '../../domain/head_safety_tracker.dart';
 import '../components.dart';
 import '../design.dart';
 
@@ -12,7 +13,8 @@ class TodayScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = controller.data!;
     final result = controller.assessment!;
-    final overview = RecoveryOverview.fromAssessment(result);
+    final limiter =
+        result.limiter == null ? null : result.domains[result.limiter];
     final sleepBaseline = result.baselines['sleep']!;
     final hrvBaseline = result.baselines['hrv']!;
     final baselineReady = sleepBaseline.ready || hrvBaseline.ready;
@@ -89,31 +91,38 @@ class TodayScreen extends StatelessWidget {
               child: Stack(alignment: Alignment.center, children: [
                 SizedBox.expand(
                     child: CircularProgressIndicator(
-                        value: overview.score == null
+                        value: limiter?.score == null
                             ? result.observedCount / 6
-                            : overview.score! / 100,
+                            : limiter!.score! / 100,
                         strokeWidth: 9,
-                        color: overview.tone == 'safety'
+                        color: result.safety.isNotEmpty
                             ? AppColors.red
-                            : overview.tone == 'low'
-                                ? AppColors.amber
-                                : AppColors.lime,
+                            : limiter?.status == 'RESTRICTED'
+                                ? AppColors.red
+                                : limiter?.status == 'CAUTION'
+                                    ? AppColors.amber
+                                    : AppColors.lime,
                         backgroundColor: AppColors.line)),
                 Column(mainAxisSize: MainAxisSize.min, children: [
                   Text(
-                      overview.score?.toString() ?? '${result.observedCount}/6',
+                      limiter?.score?.toString() ?? '${result.observedCount}/6',
                       style: const TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
                           height: 1)),
-                  Text(overview.label,
+                  Text(
+                      result.safety.isNotEmpty
+                          ? 'SAFETY'
+                          : limiter?.score != null
+                              ? 'LOWEST /100'
+                              : 'DOMAINS',
                       style: const TextStyle(
                           color: AppColors.muted,
                           fontWeight: FontWeight.w800,
                           fontSize: 12))
                 ])
               ]))),
-      if (overview.score == null) ...[
+      if (limiter?.score == null) ...[
         const SizedBox(height: 4),
         Center(
             child: Text(
@@ -123,8 +132,8 @@ class TodayScreen extends StatelessWidget {
         Center(
             child: Text(
                 baselineReady
-                    ? 'Recovery score pending · more domain data needed'
-                    : 'Recovery score pending · baseline $baselineDays/7 days',
+                    ? 'No domain below 80 · review each score below'
+                    : 'Personal baseline $baselineDays/7 days',
                 style: const TextStyle(fontSize: 10, color: AppColors.muted))),
       ],
       const SizedBox(height: 8),
@@ -224,7 +233,7 @@ class TodayScreen extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           children: [
             for (final key in domainKeys)
-              _DomainMiniCard(domainLabels[key]!, result.domains[key]!.status,
+              _DomainMiniCard(domainLabels[key]!, result.domains[key]!,
                   detail: key == 'sleep' &&
                           result.domains[key]!.status == 'INSUFFICIENT_DATA' &&
                           (sleep?.sleepMinutes != null || hrv?.hrv != null)
@@ -433,14 +442,15 @@ class FeedbackScreen extends StatelessWidget {
 }
 
 class _DomainMiniCard extends StatelessWidget {
-  const _DomainMiniCard(this.label, this.status,
+  const _DomainMiniCard(this.label, this.domain,
       {this.detail, this.baselineDays});
   final String label;
-  final String status;
+  final DomainResult domain;
   final String? detail;
   final int? baselineDays;
   @override
   Widget build(BuildContext context) {
+    final status = domain.status;
     final learning = status == 'INSUFFICIENT_DATA' && detail != null;
     final color = status == 'READY'
         ? AppColors.lime
@@ -476,7 +486,11 @@ class _DomainMiniCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       fontSize: 10, fontWeight: FontWeight.w800)),
-              if (learning) ...[
+              if (domain.score != null)
+                Text('${domain.score}/100',
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w800))
+              else if (learning) ...[
                 Text(detail!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -491,15 +505,11 @@ class _DomainMiniCard extends StatelessWidget {
               ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
-                      value: status == 'READY'
-                          ? .85
-                          : status == 'CAUTION'
-                              ? .55
-                              : status == 'RESTRICTED'
-                                  ? .2
-                                  : learning
-                                      ? ((baselineDays ?? 0) / 7).clamp(0, 1)
-                                      : 0,
+                      value: domain.score != null
+                          ? domain.score! / 100
+                          : learning
+                              ? ((baselineDays ?? 0) / 7).clamp(0, 1)
+                              : 0,
                       minHeight: 4,
                       backgroundColor: AppColors.line,
                       color: color)),
@@ -651,6 +661,7 @@ class BrainScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final assessment = controller.assessment!;
     final brain = assessment.domains['brain']!;
+    final head = HeadSafetyTracker(controller.data!);
     final recent = controller.data!.sessions.where((session) {
       final day = DateTime.tryParse(session.date);
       return session.type == 'Sparring' &&
@@ -702,15 +713,23 @@ class BrainScreen extends StatelessWidget {
             width: 59,
             height: 59,
             decoration: BoxDecoration(
-                color: headSafety.isEmpty
-                    ? const Color(0xffedf8f2)
-                    : const Color(0xffffecea),
+                color: headSafety.isNotEmpty
+                    ? const Color(0xffffecea)
+                    : head.hasExternalPlan
+                        ? const Color(0xfffff7e8)
+                        : const Color(0xffedf8f2),
                 borderRadius: BorderRadius.circular(18)),
             child: Icon(
-                headSafety.isEmpty
-                    ? Icons.check_circle_outline
-                    : Icons.cancel_outlined,
-                color: headSafety.isEmpty ? AppColors.teal : AppColors.red))
+                headSafety.isNotEmpty
+                    ? Icons.cancel_outlined
+                    : head.hasExternalPlan
+                        ? Icons.info_outline
+                        : Icons.check_circle_outline,
+                color: headSafety.isNotEmpty
+                    ? AppColors.red
+                    : head.hasExternalPlan
+                        ? AppColors.amber
+                        : AppColors.teal))
       ])),
       const SizedBox(height: 13),
       AppCard(
@@ -746,19 +765,36 @@ class BrainScreen extends StatelessWidget {
       ])),
       const SizedBox(height: 18),
       AppCard(
-          color: headSafety.isEmpty ? Colors.white : const Color(0xfffff5f3),
+          color: headSafety.isNotEmpty
+              ? const Color(0xfffff5f3)
+              : head.hasExternalPlan
+                  ? const Color(0xfffff7e8)
+                  : Colors.white,
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(headSafety.isEmpty ? 'CURRENT STATUS' : '⚠  FLAGGED',
+            Text(
+                headSafety.isNotEmpty
+                    ? '⚠  FLAGGED'
+                    : head.hasExternalPlan
+                        ? 'EXTERNAL PLAN RECORDED'
+                        : 'CURRENT STATUS',
                 style: TextStyle(
-                    color: headSafety.isEmpty ? AppColors.teal : AppColors.red,
+                    color: headSafety.isNotEmpty
+                        ? AppColors.red
+                        : head.hasExternalPlan
+                            ? AppColors.amber
+                            : AppColors.teal,
                     fontWeight: FontWeight.w800,
                     fontSize: 12)),
             const SizedBox(height: 10),
             Text(
-                headSafety.isEmpty
-                    ? 'Track head contact and symptoms.'
-                    : 'Stop head-contact training and seek qualified evaluation.',
+                headSafety.isNotEmpty
+                    ? head.needsProfessionalFollowUp
+                        ? 'Pause training and seek qualified evaluation.'
+                        : 'Avoid head-contact training today.'
+                    : head.hasExternalPlan
+                        ? 'Follow your clinician’s individual plan.'
+                        : 'Track head contact and symptoms.',
                 style: const TextStyle(
                     fontSize: 21, fontWeight: FontWeight.w800, height: 1.15)),
             const SizedBox(height: 10),
@@ -774,6 +810,53 @@ class BrainScreen extends StatelessWidget {
                 'This app does not diagnose concussion or provide medical clearance.',
                 style: TextStyle(color: AppColors.muted, fontSize: 12))
           ])),
+      if (head.needsProfessionalFollowUp) ...[
+        const SizedBox(height: 13),
+        AppCard(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SectionLabel('Head-impact follow-up'),
+          const SizedBox(height: 7),
+          Text('Concern reported ${head.latestIncidentDate}.',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 7),
+          Text(
+              head.planRecorded
+                  ? 'External plan recorded. The same-day restriction remains in place. If symptoms return, seek another evaluation.'
+                  : 'A symptom-free morning or passing days cannot clear this warning. Seek evaluation by a qualified healthcare professional.',
+              style: const TextStyle(fontSize: 12)),
+          if (!head.planRecorded) ...[
+            const SizedBox(height: 8),
+            TextButton(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                              title: const Text('Record external plan?'),
+                              content: const Text(
+                                  'Record this only if a qualified healthcare professional evaluated this concern and explicitly gave you a return-to-contact plan. This is your self-report; the app cannot verify the advice or provide medical clearance. Head-contact training remains restricted today.'),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
+                                    child: const Text('Cancel')),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
+                                    child: const Text('Record plan')),
+                              ]));
+                  if (confirmed == true) {
+                    try {
+                      await controller.recordExternalHeadPlan();
+                    } catch (error) {
+                      controller.showError(error);
+                    }
+                  }
+                },
+                child: const Text('Record clinician guidance')),
+          ],
+        ])),
+      ],
     ]);
   }
 }

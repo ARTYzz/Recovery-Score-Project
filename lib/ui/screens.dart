@@ -4,6 +4,7 @@ import 'screens/home_screens.dart';
 import 'screens/log_screens.dart';
 import 'screens/onboarding_screens.dart';
 import 'screens/other_screens.dart';
+import 'screens/trends_screen.dart';
 import 'components.dart';
 import 'design.dart';
 

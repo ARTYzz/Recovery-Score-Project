@@ -11,6 +11,9 @@ dependencies:
     sdk: flutter
   cryptography: ^2.7.0
   shared_preferences: ^2.5.0
+  sqflite_sqlcipher: ^3.4.1
+  path_provider: ^2.1.5
+  file_picker: ^13.3.3
   image_picker: ^1.1.0
   cupertino_icons: ^1.0.8
   health: 13.3.2

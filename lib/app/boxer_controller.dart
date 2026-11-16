@@ -3,18 +3,26 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../data/athlete_vault.dart';
+import '../data/athlete_backup.dart';
 import '../data/fightcamp_demo_source.dart';
 import '../data/huawei_apple_health_source.dart';
+import '../data/wearable_history_merger.dart';
 import '../domain/athlete_data.dart';
+import '../domain/head_safety_tracker.dart';
 import '../domain/recovery_engine.dart';
 
 class BoxerController extends ChangeNotifier {
-  BoxerController({AthleteVault? vault}) : vault = vault ?? AthleteVault();
+  BoxerController({AthleteVault? vault, HuaweiAppleHealthSource? huaweiHealth})
+      : vault = vault ?? AthleteVault(),
+        huaweiHealth = huaweiHealth ?? HuaweiAppleHealthSource();
 
   final AthleteVault vault;
+  final AthleteBackup backups = AthleteBackup();
   final RecoveryEngine engine = RecoveryEngine();
   final FeedbackService feedback = FeedbackService();
-  final HuaweiAppleHealthSource huaweiHealth = HuaweiAppleHealthSource();
+  final HuaweiAppleHealthSource huaweiHealth;
+  static const _huaweiHistory =
+      WearableHistoryMerger(HuaweiAppleHealthSource.sourceName);
   AthleteData? data;
   String route = 'setup';
   String? error;
@@ -167,13 +175,15 @@ class BoxerController extends ChangeNotifier {
             (today == null || sample.source == today.source))
         .toList();
     final prior = priorSamples.isEmpty ? null : priorSamples.last;
-    final domains = engine
-        .assess(athlete)
-        .domains
+    final currentAssessment = engine.assess(athlete);
+    final domains = currentAssessment.domains
         .map((key, value) => MapEntry(key, value.status));
     var linkedAction = false;
-    for (final action in athlete.actions
-        .where((e) => e.nextDay == null && e.date.compareTo(check.date) < 0)) {
+    for (final action in athlete.actions.where((e) =>
+        e.nextDay == null &&
+        parsedDay(check.date) != null &&
+        parsedDay(e.date) != null &&
+        parsedDay(check.date)!.difference(parsedDay(e.date)!).inDays == 1)) {
       linkedAction = true;
       action.nextDay = {
         'hrvDelta': today?.hrv != null && prior?.hrv != null
@@ -189,6 +199,16 @@ class BoxerController extends ChangeNotifier {
             : null,
         'mood': check.mood,
         'domains': domains,
+        'targetDomain': action.targetDomain,
+        'targetScore': action.targetDomain == null
+            ? null
+            : currentAssessment.domains[action.targetDomain]?.score,
+        'targetScoreDelta': action.targetScore == null ||
+                action.targetDomain == null ||
+                currentAssessment.domains[action.targetDomain]?.score == null
+            ? null
+            : currentAssessment.domains[action.targetDomain]!.score! -
+                action.targetScore!,
       };
     }
     await _persistAndGo(linkedAction ? 'feedback' : 'today');
@@ -197,6 +217,19 @@ class BoxerController extends ChangeNotifier {
   Future<void> saveTraining(TrainingSession session) async {
     data!.sessions.add(session);
     await _persistAndGo('nutrition');
+  }
+
+  Future<void> recordExternalHeadPlan() async {
+    final athlete = data!;
+    final head = HeadSafetyTracker(athlete);
+    final incident = head.latestIncidentDate;
+    if (incident == null || !head.needsProfessionalFollowUp) {
+      throw const FormatException(
+          'No unresolved head-impact report was found.');
+    }
+    athlete.headSafetyReviews.add(HeadSafetyReview(
+        incidentDate: incident, recordedAt: DateTime.now().toIso8601String()));
+    await _persistAndGo('brain');
   }
 
   Future<void> saveNutrition(NutritionCheck check) async {
@@ -221,7 +254,10 @@ class BoxerController extends ChangeNotifier {
         id: action.id,
         date: data!.currentDay,
         startedAt: startedAt.toIso8601String(),
-        completedAt: DateTime.now().toIso8601String()));
+        completedAt: DateTime.now().toIso8601String(),
+        targetDomain: assessment!.limiter ?? 'sleep',
+        targetScore:
+            assessment!.domains[assessment!.limiter ?? 'sleep']?.score));
     await _persistAndGo('today');
   }
 
@@ -247,11 +283,8 @@ class BoxerController extends ChangeNotifier {
       final athlete = data!;
       athlete.healthAcceptedAt = DateTime.now().toIso8601String();
       athlete.connections['apple'] = 'CONNECTED';
-      athlete.wearables.removeWhere((sample) =>
-          sample.mode == 'DEMO' ||
-          sample.source == HuaweiAppleHealthSource.sourceName);
-      athlete.wearables.addAll(samples);
-      athlete.wearables.sort((a, b) => a.date.compareTo(b.date));
+      athlete.wearables.removeWhere((sample) => sample.mode == 'DEMO');
+      _huaweiHistory.merge(athlete, samples);
       await vault.save();
     } catch (e) {
       showError(e);
@@ -270,16 +303,13 @@ class BoxerController extends ChangeNotifier {
       final samples = await huaweiHealth.sync();
       final athlete = data!;
       if (samples.isEmpty) {
-        athlete.connections['apple'] = 'DISCONNECTED';
-        athlete.healthAcceptedAt = null;
         error =
-            'No Huawei records are readable now. Check Apple Health read access.';
+            'No Huawei records were readable in this sync. Saved history is unchanged; check Apple Health data and read access.';
+      } else {
+        error = null;
+        _huaweiHistory.merge(athlete, samples);
+        await vault.save();
       }
-      athlete.wearables.removeWhere(
-          (sample) => sample.source == HuaweiAppleHealthSource.sourceName);
-      athlete.wearables.addAll(samples);
-      athlete.wearables.sort((a, b) => a.date.compareTo(b.date));
-      await vault.save();
     } catch (e) {
       showError(e);
     } finally {
@@ -301,6 +331,36 @@ class BoxerController extends ChangeNotifier {
   Future<void> toggleNotifications() async {
     data!.notifications = !data!.notifications;
     await _persistAndGo('settings');
+  }
+
+  Future<Uint8List> exportBackup(String passphrase) async {
+    if (data == null) throw StateError('Unlock the app first.');
+    return backups.export(data!, passphrase);
+  }
+
+  Future<AthleteData> decodeBackup(Uint8List bytes, String passphrase) =>
+      backups.restore(bytes, passphrase);
+
+  void _resetRestoredHealthConnection(AthleteData restored) {
+    // Permissions never travel with a backup, even when past samples do.
+    restored.connections['apple'] = 'DISCONNECTED';
+    restored.connections['android'] = 'DISCONNECTED';
+    restored.healthAcceptedAt = null;
+  }
+
+  Future<void> restoreNewAccount(
+      AthleteData restored, String localPassphrase) async {
+    _resetRestoredHealthConnection(restored);
+    await vault.create(localPassphrase, restored);
+    data = restored;
+    navigate('today');
+  }
+
+  Future<void> restoreBackup(AthleteData restored) async {
+    _resetRestoredHealthConnection(restored);
+    await vault.replace(restored);
+    data = restored;
+    navigate('today');
   }
 
   void lock() {

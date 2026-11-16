@@ -57,15 +57,13 @@ void main() {
   });
 
   test('HRV read summary distinguishes Huawei and other readable sources', () {
-    final hrvFromOtherSource = point(
-        HealthDataType.HEART_RATE_VARIABILITY_SDNN,
-        '2026-10-27T07:00:00',
-        '2026-10-27T07:00:01',
-        source: 'Another Watch',
-        value: 52);
+    final hrvFromOtherSource = point(HealthDataType.HEART_RATE_VARIABILITY_SDNN,
+        '2026-10-27T07:00:00', '2026-10-27T07:00:01',
+        source: 'Another Watch', value: 52);
     final summary = HealthReadSummary.fromPoints([hrvFromOtherSource],
         checkedAt: DateTime.parse('2026-10-27T08:00:00'));
     expect(summary.huaweiHrvRecords, 0);
+    expect(summary.huaweiRecords, 0);
     expect(summary.otherHrvRecords, 1);
     expect(summary.hrvExplanation, contains('another source'));
     expect(HuaweiHealthNormalizer.normalize([hrvFromOtherSource]), isEmpty);
@@ -78,6 +76,7 @@ void main() {
           value: 48)
     ], checkedAt: DateTime.parse('2026-10-27T08:00:00'));
     expect(summary.huaweiHrvRecords, 0);
+    expect(summary.huaweiRecords, 1);
     expect(summary.otherHrvRecords, 0);
     expect(summary.hrvExplanation, contains('No Huawei HRV'));
   });

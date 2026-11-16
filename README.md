@@ -6,6 +6,8 @@ The active app is Flutter for iOS and Android, with a browser preview for UI and
 
 Wearable data is **real Apple Health data on iPhone**. The app requests read access and imports only records with Huawei provenance from the last 14 days. Sleep, HRV (Apple Health SDNN), resting heart rate, heart rate, and workout duration stay `Unavailable` until matching records can be read. A connected status confirms at least one Huawei record, not every metric. The app never creates synthetic wearable values. Health Connect is not integrated. FightCamp punch history is the **only runtime mock source** and is always labelled as such.
 
+Each HealthKit sync reads a 14-day window and merges returned Huawei days into encrypted local history. Older saved days remain available to Trends. A partial day updates only the metrics returned; an empty read keeps saved history and the connection state, while showing a warning. Explicit Disconnect clears the locally imported Huawei history.
+
 ### Run and test
 
 On a Mac with Xcode and a connected iPhone, run `flutter pub get`, open `ios/Runner.xcworkspace` to select a signing team, and run `flutter run -d DEVICE_ID`. Create a real athlete profile, grant Apple Health read access during onboarding (or later in Settings → Connected Sources), complete the morning check-in, then view Today. The app reads again on unlock, when returning to the app, or when **Sync now** is tapped. It does not currently receive background HealthKit updates. Revoke platform read permission in the iPhone Health app; Disconnect in Boxer Recovery clears imported local records.
@@ -27,6 +29,12 @@ The Dart code is organized by responsibility:
 - `lib/data/`: encrypted local vault, Apple Health reader, and labelled FightCamp mock source.
 - `lib/app/`: navigation, onboarding, synchronization, and check-in state controller.
 - `lib/ui/`: reusable mobile components and screens.
+
+### Local storage and backups
+
+On iOS and Android, the athlete profile, check-ins, wearable history, training, safety reviews, and food records are stored in an encrypted SQLCipher database in the app's private support directory. Food photo bytes are stored as encrypted database BLOBs rather than inside the meal JSON row. A database transaction commits each save. The passphrase is required after the app is locked and is not saved in preferences. Chrome and desktop previews continue to use the older encrypted preference vault for UI testing; they are separate installations and do not share data with the phone.
+
+The first successful mobile unlock migrates an existing encrypted preference vault to SQLCipher, reads the new records back to verify them, then removes the old preference copy. If migration fails, the old vault remains available. Settings offers **Export encrypted backup** and **Restore from backup**. The user chooses a backup passphrase and a file location; the app does not upload the file. Restoring replaces the current local account only after a confirmation dialog. Historical imported samples retain their source labels, but Apple Health permissions and the connected state are reset because those permissions are device-specific. Keep the backup file and passphrase safe; losing both the app data and backup means there is no cloud recovery.
 
 ### Training guidance in the prototype
 
