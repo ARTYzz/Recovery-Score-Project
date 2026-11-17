@@ -1,5 +1,7 @@
 # User Journey — Recovery App for Boxers
 
+> **Design-history note.** This document records an earlier proposed journey. The current [specification](../01-requirements/spec.md) and [README](../../README.md) govern the delivered mobile prototype. References below to a separate Punch Freshness Test, direct Health Connect access, or an authorized FightCamp connection are planned concepts, not implemented features. The delivered app reads Apple Health on iPhone and uses clearly labelled FightCamp mock sessions.
+
 **Primary persona:** professional boxer, 24–33, 6–15 fights in, no full-time performance staff. Owns a watch and a scale. Trains 9–12 sessions a week in camp. Has abandoned two fitness apps already.
 
 **Secondary readers:** none. There is no coach seat in v1, and the journey is designed on the assumption that nobody else ever sees the inputs. That assumption is what makes honest soreness and mood entries possible.

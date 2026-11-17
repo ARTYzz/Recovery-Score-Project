@@ -27,14 +27,16 @@ flutter run -d chrome
 
 ## How the team uses AI
 
-From members' AI disclosures ([.docs/final/role-statements/](.docs/final/role-statements/) role statements). _TO FILL: rows for members whose role statements are not in yet._
+From members' AI disclosures in [.docs/final/role-statements/](.docs/final/role-statements/). These describe development assistance; the app has no runtime AI model.
 
 | Tool | Used for | Who | How output was checked |
 |---|---|---|---|
 | Google Gemini | Requirement analysis; prompts for Stitch AI | Theerawut (Designer) | Flows and layouts reviewed and refined manually |
 | Stitch AI | Initial UI prototype screens | Theerawut (Designer) | Reviewed and adjusted manually |
-| Google Gemini | SUS/TAM calculation, Markdown tables, editing tone | Hassakorn (QA/Tester) | _TO FILL_ |
+| Google Gemini | SUS/TAM calculation, Markdown tables, editing tone | Hassakorn (QA/Tester) | Calculations and tables checked against the survey responses in [.docs/03-Test/sus-results.md](.docs/03-Test/sus-results.md) |
 | Claude Code | Test documentation: no-real-user test, session log formatting, SUS recalculation by script, issue log, heuristic review draft, AI logic | team (this repository) | Numbers recomputed by script from raw data; tests run with `flutter test`; reviewed before commit |
+| ChatGPT/Codex | Flutter and HealthKit implementation support, troubleshooting, documentation | Chisanucha (Tech Lead) | Reviewed against requirements and safety rules, then checked with tests and device runs |
+| Claude Code, Gemini, ChatGPT | Analysis, documentation, implementation approaches | Thiraphat (AI Lead) | Reviewed against specification, scoring rules, and automated tests |
 
 Agreed practice:
 

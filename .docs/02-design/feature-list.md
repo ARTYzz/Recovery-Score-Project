@@ -1,5 +1,7 @@
 # Feature List — Recovery App for Boxers
 
+> **Design-history note.** This list includes proposed integrations and flows. For the delivered mobile prototype, use the current [specification](../01-requirements/spec.md), [README](../../README.md), and [final evidence index](../final/README.md). A separate Punch Test and real Health Connect/FightCamp connections are not implemented; FightCamp sessions are labelled mock data and Apple Health is read on iPhone.
+
 **Status:** Design Draft  
 **Scope:** v1 — Single-user athlete experience, no coach seat
 

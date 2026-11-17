@@ -1,5 +1,7 @@
 # Project Charter for Software Engineering Case Studies
 
+> **Original charter / planned scope.** This records the team's initial proposal, not a list of delivered features or measured results. The current [specification](spec.md), [README](../../README.md), and [final evidence index](../final/README.md) describe the delivered prototype. In particular, the app no longer asks for a smartphone Punch Test: it uses labelled FightCamp mock sessions until an authorized integration exists. The 90-second input and boxer-interview figures below are goals, not achieved results; see the [PROXY test report](../../test/no-real-user-test.md).
+
 * **Project Title:** Recovery Score Project
 * **Company:** 5 Rangers Company
 * **Course:** 1305493 Software Engineering Case Studies

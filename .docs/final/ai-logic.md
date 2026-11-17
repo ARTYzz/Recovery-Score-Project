@@ -33,7 +33,7 @@ Full rules: [RECOVERY_SCORING.md](../../RECOVERY_SCORING.md).
 | Test set | [test/recovery_engine_test.dart](../../test/recovery_engine_test.dart) — 27 scenario tests (e.g. "head symptoms override training even with baseline data", "severe pain safety overrides all four categories", "missing HRV stays missing", "primary limiter uses the lowest measured domain score") + [test/head_safety_flow_test.dart](../../test/head_safety_flow_test.dart) — 2 tests. **29 rule tests in total.** |
 | Baseline (what "correct" means) | The written rules in [RECOVERY_SCORING.md](../../RECOVERY_SCORING.md) and acceptance criteria in [backlog.md](../01-requirements/backlog.md). Each test encodes one rule. |
 | Eval script | `flutter test test/recovery_engine_test.dart test/head_safety_flow_test.dart` (or `flutter test` for the full suite) |
-| Eval log | Full suite `00:41 +85: All tests passed!` — 85/85, clean checkout of `main` at `65d7ba5`, 18 Nov 2026, Flutter 3.50.0. Details: [no-real-user-test.md §2.1](../../test/no-real-user-test.md) |
+| Eval log | Latest local run: 85/85 tests passed and `flutter analyze` found no issues on `main` at `c79e632`, 18 Nov 2026, Flutter 3.47.6. Command and limits: [automated-test-run-2026-11-18.md](../../test/automated-test-run-2026-11-18.md). Earlier run: [no-real-user-test.md §2.1](../../test/no-real-user-test.md). |
 
 ## 4. Measure
 
@@ -63,7 +63,9 @@ From members' AI disclosures in their role statements:
 | Stitch AI (Google) | Initial UI prototype screens | [6631503024-Theerawut.md](role-statements/6631503024-Theerawut.md) |
 | Google Gemini | SUS/TAM calculation, Markdown tables, editing tone | [6631503127-Hassakorn.md](role-statements/6631503127-Hassakorn.md) |
 | Claude Code | Test documentation (no-real-user test, session log formatting, SUS recalculation, issue log, heuristic review draft), this document | this repository's test documents |
+| ChatGPT/Codex | Flutter and HealthKit implementation support, troubleshooting, and documentation | [6631503125-Chisanucha.md](role-statements/6631503125-Chisanucha.md) |
+| Claude Code, Gemini, ChatGPT | Analysis, documentation, and implementation approaches | [6631503023-Thiraphat.md](role-statements/6631503023-Thiraphat.md) |
 
-_TO FILL: AI use by the other members (from their role statements)._ Rules the team follows when using AI are in [CLAUDE.md](../../CLAUDE.md).
+The Product Owner also discloses Claude Code use in [6531503111-Pawornpat.md](role-statements/6531503111-Pawornpat.md). Rules the team follows when using AI are in [CLAUDE.md](../../CLAUDE.md).
 
 One PROXY respondent asked for AI recommendations as the one change they would make (survey S1) — a possible future feature, out of scope for this prototype.

@@ -22,13 +22,15 @@ Evidence labels: **PROXY** = people outside the team who are not boxers; **TEAM*
 | Use case diagram | [use-case.jpg](../02-design/diagrams/use-case.jpg) |
 | Activity / user flow diagram | [user-flow.png](../02-design/diagrams/user-flow.png) |
 | ER diagram | [erd.png](../02-design/diagrams/erd.png) |
-| Architecture | [system-architecture.jpg](../02-design/diagrams/system-architecture.jpg), explained in [user-journey.md](../02-design/user-journey.md) |
+| Implemented architecture | [architecture-current.md](../02-design/architecture-current.md) |
+| Original architecture diagram (design history) | [system-architecture.jpg](../02-design/diagrams/system-architecture.jpg) |
 | User journey and feature list | [user-journey.md](../02-design/user-journey.md), [feature-list.md](../02-design/feature-list.md) |
 | Source code | [lib/](../../lib/) |
 | Our own tests (85 cases, 85/85 pass) | [test/](../../test/) |
+| Latest automated test run | [automated-test-run-2026-11-18.md](../../test/automated-test-run-2026-11-18.md) |
 | Recovery scoring rules | [RECOVERY_SCORING.md](../../RECOVERY_SCORING.md) |
 | How to run (setup, .env.example, test account) | [README.md](../../README.md), [.env.example](../../.env.example) |
-| Android build | [output/BoxerRecovery-debug.apk](../../output/BoxerRecovery-debug.apk) |
+| Historical Android debug build (23 Sep 2026; use `flutter run` for current app) | [output/BoxerRecovery-debug.apk](../../output/BoxerRecovery-debug.apk) |
 
 ## 3. Test
 

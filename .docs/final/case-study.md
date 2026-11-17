@@ -4,13 +4,13 @@
 
 **Timeline:**  Sept 2026 – Nov 2026 
 
-**Live URL:** no public web deployment yet. The Android build is in the repo at [output/BoxerRecovery-debug.apk](../../output/BoxerRecovery-debug.apk); setup steps are in [README.md](../../README.md). _TO FILL: add the live URL if one is deployed._
+**Live URL:** no public deployment. This is a mobile app. Setup and device run steps for the current source are in [README.md](../../README.md). The [Android debug APK](../../output/BoxerRecovery-debug.apk) is an older convenience build dated 23 Sep 2026 and does not verify the current source.
 
 > **Evidence note:** no real boxers have tested the app yet. All test results below come from **PROXY** users (8 friends outside the team, not boxers) on 17 Nov 2026 — see [no-real-user-test.md](../../test/no-real-user-test.md).
 
 ## 1. The Problem
 
-Professional and amateur boxers undergo intense, grueling "fight camps" leading up to a bout. During this phase, balancing training load and recovery is critical to avoid overtraining, injuries, or peaking too early. However, athletes face several massive hurdles:
+Professional and amateur boxers undergo intense fight camps leading up to a bout. Our original problem framing is supported by the [SECONDARY problem review](../01-requirements/problem-review-secondary.md), not by interviews with target boxers. We identified these potential hurdles:
 * **Fragmented Data:** Boxers track data across multiple disjointed sources (smartwatches for sleep, FightCamp for punches, paper logs for sparring).
 * **Information Overload:** Wearables provide raw numbers (e.g., HRV, resting HR) but lack actionable, boxing-specific context. 
 * **Safety Blind Spots:** Generic fitness apps do not account for neurological risks (head impacts from sparring) or the dangers of extreme weight cutting.

@@ -1,5 +1,7 @@
 ## 1. Purpose
 
+> **Backlog history and current scope.** P0/MUST below reflects the original prioritization. US-20's manual Punch Freshness Test was superseded by [spec.md §Power & Speed](spec.md): the delivered prototype uses labelled FightCamp mock sessions and does not require a separate punch test. Real Apple Health reading on iPhone replaced the earlier mock-wearable plan; Health Connect and the official FightCamp API remain unimplemented. The [final evidence index](../final/README.md) and [test report](../../test/no-real-user-test.md) distinguish delivered behavior from goals. Do not count an original MUST as verified solely because it appears in this backlog.
+
 This document defines the product backlog for the Boxing Recovery Tracking Application.
 
 The backlog is organized around the main user journey:

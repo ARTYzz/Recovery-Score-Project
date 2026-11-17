@@ -33,7 +33,7 @@ See [.env.example](.env.example). **No `.env` file, API key, backend, or databas
 
 Replace `DEVICE_ID` with the identifier shown by `flutter devices`. On Mac, open `ios/Runner.xcworkspace` in Xcode and select your Development Team under **Runner → Signing & Capabilities** before the first iPhone run. Keep the iPhone unlocked and trust the developer certificate if iOS prompts you. An iOS simulator can run the UI, but it is not a substitute for testing watch data on a physical iPhone.
 
-If Flutter is not on PATH on this Windows workspace, the local SDK can be called as `.\.toolchains\flutter\bin\flutter.bat` instead of `flutter`. This folder is local and is not included in Git; other machines should install Flutter normally. The existing [Android debug APK](output/BoxerRecovery-debug.apk) is a convenience build, while `flutter run` uses the current source code.
+If Flutter is not on PATH on this Windows workspace, the local SDK can be called as `.\.toolchains\flutter\bin\flutter.bat` instead of `flutter`. This folder is local and is not included in Git; other machines should install Flutter normally. The existing [Android debug APK](output/BoxerRecovery-debug.apk) is an older build dated 23 Sep 2026; use `flutter run` or rebuild the APK to test the current source code.
 
 ## Test account / test profile
 

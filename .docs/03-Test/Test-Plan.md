@@ -1,5 +1,7 @@
 # Recovery Score App — Test Plan
 
+> **Planned protocol, not an execution report.** This plan was written before the current iOS/HealthKit implementation and still names retired prototype flows such as a local passphrase, mock Apple Health/Health Connect, and a manual Punch Test. Use [README.md](../../README.md) and [spec.md](../01-requirements/spec.md) for current behavior. The planned real-boxer UAT did not occur. Actual PROXY sessions, results, gaps, and retest status are recorded in [session-logs.md](session-logs.md), [sus-results.md](sus-results.md), [issue-log.md](issue-log.md), and [no-real-user-test.md](../../test/no-real-user-test.md). Unexecuted test cases below are not pass claims.
+
 ## 1. Overview and objectives
 Testing runs from 1 to 29 November 2026. It checks that the Recovery Score app (Flutter, Android + web demo) helps boxers make safer daily training decisions with less than about 90 seconds of input per day.
 
