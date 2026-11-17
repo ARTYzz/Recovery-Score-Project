@@ -419,8 +419,6 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => _restore(context)),
       ])),
       const SizedBox(height: 15),
-      OutlinedButton(onPressed: controller.lock, child: const Text('Lock app')),
-      const SizedBox(height: 10),
       OutlinedButton(
           onPressed: () async {
             final yes = await showDialog<bool>(

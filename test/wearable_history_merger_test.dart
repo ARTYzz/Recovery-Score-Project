@@ -121,6 +121,32 @@ void main() {
     expect(year.metrics['Sleep']!.values[10], 7.5);
   });
 
+  test('Today refresh saves new health values without hiding the screen',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final athlete = AthleteData(onboardingStage: 'complete');
+    athlete.connections['apple'] = 'CONNECTED';
+    final vault = AthleteVault();
+    await vault.create('test-passphrase', athlete);
+    final source = FakeHuaweiHealthSource()
+      ..results = [sample(localDay(), sleep: 425, rhr: 51)];
+    final controller = BoxerController(vault: vault, appleHealth: source)
+      ..data = athlete
+      ..busy = false;
+
+    await controller.refreshToday();
+
+    expect(controller.busy, isFalse);
+    expect(controller.data!.latestSleepSample?.sleepMinutes, 425);
+    expect(
+        controller.data!.latestMetricSample((s) => s.restingHr)?.restingHr, 51);
+    expect(
+        (await AthleteVault().unlock('test-passphrase'))
+            .latestSleepSample!
+            .sleepMinutes,
+        425);
+  });
+
   test('explicit disconnect still removes imported Huawei records', () async {
     SharedPreferences.setMockInitialValues({});
     final athlete = AthleteData(onboardingStage: 'complete');

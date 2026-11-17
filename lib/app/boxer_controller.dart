@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/athlete_vault.dart';
 import '../data/athlete_backup.dart';
+import '../data/device_credential_store.dart';
 import '../data/fightcamp_demo_source.dart';
 import '../data/apple_health_source.dart';
 import '../data/wearable_history_merger.dart';
@@ -15,15 +17,22 @@ import '../domain/health_source.dart';
 import '../domain/recovery_engine.dart';
 
 class BoxerController extends ChangeNotifier {
-  BoxerController({AthleteVault? vault, AppleHealthSource? appleHealth})
+  BoxerController(
+      {AthleteVault? vault,
+      AppleHealthSource? appleHealth,
+      DeviceCredentialStore? deviceCredentials})
       : vault = vault ?? AthleteVault(),
-        appleHealth = appleHealth ?? AppleHealthSource();
+        appleHealth = appleHealth ?? AppleHealthSource(),
+        deviceCredentials =
+            deviceCredentials ?? const SecureDeviceCredentialStore();
 
   final AthleteVault vault;
   final AthleteBackup backups = AthleteBackup();
   final RecoveryEngine engine = RecoveryEngine();
   final FeedbackService feedback = FeedbackService();
   final AppleHealthSource appleHealth;
+  final DeviceCredentialStore deviceCredentials;
+  static const deviceKeyMarker = 'boxer_device_key_enabled_v1';
   static const _appleHealthHistory = WearableHistoryMerger();
   AthleteData? data;
   String route = 'setup';
@@ -48,6 +57,18 @@ class BoxerController extends ChangeNotifier {
       route = 'setup';
       error =
           'The old synthetic demo account is retired. Create your real athlete profile to replace it.';
+    } else if (preferences.getBool(deviceKeyMarker) == true) {
+      try {
+        final key = await deviceCredentials.read();
+        if (key == null) {
+          route = 'device-recovery';
+        } else {
+          await unlock(key);
+        }
+      } catch (_) {
+        data = null;
+        route = 'device-recovery';
+      }
     } else {
       route = 'unlock';
     }
@@ -94,10 +115,20 @@ class BoxerController extends ChangeNotifier {
     if (data?.connections['apple'] == 'CONNECTED') syncAppleHealth();
   }
 
+  /// Explicit foreground refresh. The Today screen stays mounted while the
+  /// HealthKit read runs, so the pull indicator and existing values remain.
+  Future<void> refreshToday() async {
+    if (data?.connections['apple'] == 'CONNECTED') {
+      await syncAppleHealth(showBusy: false);
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> createProfile(
       {required String name,
       String? fightDate,
-      required String passphrase,
+      String? passphrase,
       required bool privacyAccepted,
       double? currentWeight,
       double? heightCm,
@@ -117,12 +148,36 @@ class BoxerController extends ChangeNotifier {
         profile: profile,
         privacyAcceptedAt: DateTime.now().toIso8601String(),
         onboardingStage: 'sources');
-    await vault.create(passphrase, athlete);
+    await _createAccount(athlete, passphrase);
     data = athlete;
     navigate('health-preview');
   }
 
-  Future<void> unlock(String passphrase) async {
+  String _newDeviceKey() {
+    final random = Random.secure();
+    return base64UrlEncode(List<int>.generate(32, (_) => random.nextInt(256)));
+  }
+
+  Future<void> _createAccount(AthleteData athlete, String? passphrase) async {
+    if (passphrase != null) {
+      await vault.create(passphrase, athlete);
+      return;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    final key = _newDeviceKey();
+    await deviceCredentials.write(key);
+    await preferences.setBool(deviceKeyMarker, true);
+    try {
+      await vault.create(key, athlete);
+    } catch (_) {
+      await deviceCredentials.delete();
+      await preferences.remove(deviceKeyMarker);
+      rethrow;
+    }
+  }
+
+  Future<void> unlock(String passphrase,
+      {bool rememberOnDevice = false}) async {
     data = await vault.unlock(passphrase);
     data!.profile?.archiveExpiredFight();
     if (data!.onboardingStage == 'connect') {
@@ -136,6 +191,11 @@ class BoxerController extends ChangeNotifier {
       const MockFightCampSource().ensureDemoData(data!);
     }
     await vault.save();
+    if (rememberOnDevice) {
+      await deviceCredentials.write(passphrase);
+      await (await SharedPreferences.getInstance())
+          .setBool(deviceKeyMarker, true);
+    }
     navigate('today');
   }
 
@@ -355,13 +415,15 @@ class BoxerController extends ChangeNotifier {
     }
   }
 
-  Future<void> syncAppleHealth() async {
+  Future<void> syncAppleHealth({bool showBusy = true}) async {
     if (_syncingAppleHealth || data?.connections['apple'] != 'CONNECTED') {
       return;
     }
     _syncingAppleHealth = true;
-    busy = true;
-    notifyListeners();
+    if (showBusy) {
+      busy = true;
+      notifyListeners();
+    }
     try {
       final samples = await appleHealth.sync();
       final athlete = data!;
@@ -385,7 +447,7 @@ class BoxerController extends ChangeNotifier {
       showError(e);
     } finally {
       _syncingAppleHealth = false;
-      busy = false;
+      if (showBusy) busy = false;
       notifyListeners();
     }
   }
@@ -438,10 +500,10 @@ class BoxerController extends ChangeNotifier {
     restored.healthAcceptedAt = null;
   }
 
-  Future<void> restoreNewAccount(
-      AthleteData restored, String localPassphrase) async {
+  Future<void> restoreNewAccount(AthleteData restored,
+      [String? localPassphrase]) async {
     _resetRestoredHealthConnection(restored);
-    await vault.create(localPassphrase, restored);
+    await _createAccount(restored, localPassphrase);
     data = restored;
     navigate('today');
   }
@@ -462,6 +524,11 @@ class BoxerController extends ChangeNotifier {
 
   Future<void> deleteAccount() async {
     await vault.delete();
+    final preferences = await SharedPreferences.getInstance();
+    if (preferences.getBool(deviceKeyMarker) == true) {
+      await deviceCredentials.delete();
+      await preferences.remove(deviceKeyMarker);
+    }
     data = null;
     route = 'setup';
     notifyListeners();

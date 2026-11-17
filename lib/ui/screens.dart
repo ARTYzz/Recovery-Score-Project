@@ -18,11 +18,17 @@ class AppScreens extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final route = controller.route;
-    final onboarding =
-        ['setup', 'unlock', 'health-preview', 'baseline-intro'].contains(route);
+    final onboarding = [
+      'setup',
+      'unlock',
+      'device-recovery',
+      'health-preview',
+      'baseline-intro'
+    ].contains(route);
     Widget content = switch (route) {
       'setup' => SetupScreen(controller),
       'unlock' => UnlockScreen(controller),
+      'device-recovery' => DeviceRecoveryScreen(controller),
       'health-preview' => HealthPreviewScreen(controller),
       'baseline-intro' => BaselineIntroScreen(controller),
       'morning' => MorningScreen(controller),
@@ -61,9 +67,17 @@ class AppScreens extends StatelessWidget {
                     child: const Text('Dismiss'))
               ]),
         Expanded(
-            child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-                child: content)),
+            child: route == 'today'
+                ? RefreshIndicator(
+                    onRefresh: controller.refreshToday,
+                    color: AppColors.teal,
+                    child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                        child: content))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                    child: content)),
       ])),
       bottomNavigationBar: nav
           ? SafeArea(

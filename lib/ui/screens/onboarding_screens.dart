@@ -16,7 +16,6 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   final name = TextEditingController();
-  final pass = TextEditingController();
   final currentWeight = TextEditingController();
   final heightCm = TextEditingController();
   final targetWeight = TextEditingController();
@@ -32,27 +31,19 @@ class _SetupScreenState extends State<SetupScreen> {
         throw const FormatException('Backup file is too large.');
       }
       var backupPassphrase = '';
-      var localPassphrase = '';
       final confirmed = await showDialog<bool>(
           context: context,
           builder: (dialog) => AlertDialog(
                 title: const Text('Restore athlete backup'),
                 content: Column(mainAxisSize: MainAxisSize.min, children: [
                   const Text(
-                      'Enter the backup passphrase and choose a local passphrase for this device. Both must be at least 8 characters.'),
+                      'Enter the backup passphrase to open this file. This device will protect the restored data automatically.'),
                   const SizedBox(height: 10),
                   TextField(
                       obscureText: true,
                       onChanged: (value) => backupPassphrase = value,
                       decoration: InputDecoration(
                           labelText: AppCopy.of(context, 'Backup passphrase'))),
-                  const SizedBox(height: 10),
-                  TextField(
-                      obscureText: true,
-                      onChanged: (value) => localPassphrase = value,
-                      decoration: InputDecoration(
-                          labelText:
-                              AppCopy.of(context, 'New local passphrase'))),
                 ]),
                 actions: [
                   TextButton(
@@ -83,18 +74,17 @@ class _SetupScreenState extends State<SetupScreen> {
                 ],
               ));
       if (replace == true) {
-        await widget.controller.restoreNewAccount(restored, localPassphrase);
+        await widget.controller.restoreNewAccount(restored);
       }
     } catch (_) {
       widget.controller.showError(const FormatException(
-          'Restore failed. Check the file and passphrases.'));
+          'Restore failed. Check the file and backup passphrase.'));
     }
   }
 
   @override
   void dispose() {
     name.dispose();
-    pass.dispose();
     currentWeight.dispose();
     heightCm.dispose();
     targetWeight.dispose();
@@ -141,13 +131,6 @@ class _SetupScreenState extends State<SetupScreen> {
             currentWeight: currentWeight,
             heightCm: heightCm,
             targetWeight: targetWeight),
-        const SizedBox(height: 20),
-        const FieldTitle('Local passphrase'),
-        TextField(
-            controller: pass,
-            obscureText: true,
-            decoration: InputDecoration(
-                hintText: AppCopy.of(context, 'At least 8 characters'))),
         const SizedBox(height: 12),
         CheckboxListTile(
             contentPadding: EdgeInsets.zero,
@@ -164,7 +147,6 @@ class _SetupScreenState extends State<SetupScreen> {
                 fightDate: fightDate == null
                     ? null
                     : '${fightDate!.year}-${fightDate!.month.toString().padLeft(2, '0')}-${fightDate!.day.toString().padLeft(2, '0')}',
-                passphrase: pass.text,
                 privacyAccepted: accepted,
                 currentWeight: profileMeasurement(
                     currentWeight.text, 'current weight in kg'),
@@ -207,22 +189,48 @@ class _UnlockScreenState extends State<UnlockScreen> {
         Text('Boxer Recovery',
             style: Theme.of(context).textTheme.headlineLarge),
         const SizedBox(height: 12),
-        const Text('Unlock your locally encrypted athlete data.',
+        const Text(
+            'Enter your old passphrase once to move this account to device-protected access.',
             style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 28),
         TextField(
             controller: pass,
             obscureText: true,
             decoration: InputDecoration(
-                labelText: AppCopy.of(context, 'Local passphrase'))),
+                labelText: AppCopy.of(context, 'Previous passphrase'))),
         const SizedBox(height: 20),
         PrimaryButton('Unlock', onPressed: () async {
           try {
-            await widget.controller.unlock(pass.text);
+            await widget.controller.unlock(pass.text, rememberOnDevice: true);
           } catch (e) {
             widget.controller.showError(e);
           }
         })
+      ]);
+}
+
+class DeviceRecoveryScreen extends StatelessWidget {
+  const DeviceRecoveryScreen(this.controller, {super.key});
+  final BoxerController controller;
+
+  @override
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 90),
+        const Icon(Icons.lock_outline, size: 38, color: AppColors.amber),
+        const SizedBox(height: 16),
+        Text('Device key unavailable',
+            style: Theme.of(context).textTheme.headlineLarge),
+        const SizedBox(height: 12),
+        const Text(
+            'The encrypted data is still on this device, but its protected key could not be opened. Unlock the phone and try again. If the key was lost, restore an encrypted backup. Creating a new profile replaces the local data.',
+            style: TextStyle(color: AppColors.muted)),
+        const SizedBox(height: 26),
+        PrimaryButton('Try again', onPressed: controller.initialize),
+        const SizedBox(height: 12),
+        OutlinedButton(
+            onPressed: () => controller.navigate('setup'),
+            child: const Text('Restore backup or create a new profile')),
       ]);
 }
 

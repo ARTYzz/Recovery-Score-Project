@@ -33,6 +33,7 @@ class AppCopy {
     'Your name': 'ชื่อของคุณ',
     'At least 8 characters': 'อย่างน้อย 8 ตัวอักษร',
     'Backup passphrase': 'รหัสผ่านไฟล์สำรอง',
+    'Previous passphrase': 'รหัสผ่านเดิม',
     'New local passphrase': 'รหัสผ่านใหม่ในเครื่อง',
     'Description': 'รายละเอียด',
     'Optional. Set it later when a fight is scheduled.':
@@ -234,6 +235,16 @@ class AppCopy {
     'Height (cm)': 'ส่วนสูง (ซม.)',
     'Target weight (kg)': 'น้ำหนักเป้าหมาย (กก.)',
     'Local passphrase': 'รหัสผ่านในเครื่อง',
+    'Device key unavailable': 'ไม่สามารถเปิดกุญแจข้อมูลในเครื่อง',
+    'Try again': 'ลองอีกครั้ง',
+    'Restore backup or create a new profile':
+        'กู้คืนไฟล์สำรองหรือสร้างโปรไฟล์ใหม่',
+    'Enter your old passphrase once to move this account to device-protected access.':
+        'กรอกรหัสผ่านเดิมครั้งเดียวเพื่อเปลี่ยนไปใช้การปกป้องข้อมูลของเครื่อง',
+    'The encrypted data is still on this device, but its protected key could not be opened. Unlock the phone and try again. If the key was lost, restore an encrypted backup. Creating a new profile replaces the local data.':
+        'ข้อมูลที่เข้ารหัสยังอยู่ในเครื่อง แต่เปิดกุญแจข้อมูลไม่ได้ ปลดล็อกโทรศัพท์แล้วลองอีกครั้ง หากกุญแจสูญหาย ให้กู้คืนจากไฟล์สำรอง การสร้างโปรไฟล์ใหม่จะแทนที่ข้อมูลเดิมในเครื่อง',
+    'Enter the backup passphrase to open this file. This device will protect the restored data automatically.':
+        'กรอกรหัสผ่านไฟล์สำรองเพื่อเปิดไฟล์ เครื่องนี้จะปกป้องข้อมูลที่กู้คืนโดยอัตโนมัติ',
     'I accept the Privacy Notice': 'ฉันยอมรับประกาศความเป็นส่วนตัว',
     'BOXER RECOVERY': 'BOXER RECOVERY',
     'WELCOME BACK': 'ยินดีต้อนรับกลับ',
