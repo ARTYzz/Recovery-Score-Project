@@ -330,8 +330,9 @@ class BoxerController extends ChangeNotifier {
     try {
       final samples = await appleHealth.connect();
       if (samples.isEmpty) {
-        throw const FormatException(
-            'No records with an identifiable source were readable in Apple Health. Check the Health app data sources and Boxer Recovery read permissions.');
+        throw FormatException(appleHealth.lastReadSummary
+                ?.emptyImportMessage() ??
+            'Apple Health did not return usable records. Check Health data and read access.');
       }
       final athlete = data!;
       athlete.healthAcceptedAt = DateTime.now().toIso8601String();
@@ -366,7 +367,7 @@ class BoxerController extends ChangeNotifier {
       final athlete = data!;
       if (samples.isEmpty) {
         error =
-            'No records with an identifiable source were readable in this sync. Saved history is unchanged; check Apple Health data and read access.';
+            '${appleHealth.lastReadSummary?.emptyImportMessage() ?? 'Apple Health did not return usable records.'} Saved history is unchanged.';
       } else {
         error = null;
         _appleHealthHistory.merge(athlete, samples);

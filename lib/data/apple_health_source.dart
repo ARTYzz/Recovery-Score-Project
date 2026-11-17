@@ -46,8 +46,10 @@ class AppleHealthSource {
     final points = await health.getHealthDataFromTypes(
         types: types,
         startTime: now.subtract(const Duration(days: 14)),
-        endTime: now,
-        recordingMethodsToFilter: const [RecordingMethod.manual]);
+        endTime: now);
+    // The plugin's iOS manual-entry filter adds a HealthKit metadata predicate
+    // before returning samples. Some third-party writers omit that metadata,
+    // so read first and reject genuinely manual points in the normalizer.
     lastReadSummary = HealthReadSummary.fromPoints(points, checkedAt: now);
     return AppleHealthNormalizer.normalize(points);
   }
@@ -61,12 +63,18 @@ class HealthReadSummary {
     required this.recordsBySource,
     required this.hrvBySource,
     required this.otherHrvRecords,
+    required this.returnedRecords,
+    required this.manualRecords,
+    required this.unidentifiedRecords,
   });
 
   final DateTime checkedAt;
   final Map<String, int> recordsBySource;
   final Map<String, int> hrvBySource;
   final int otherHrvRecords;
+  final int returnedRecords;
+  final int manualRecords;
+  final int unidentifiedRecords;
   int get importedRecords =>
       recordsBySource.values.fold(0, (sum, count) => sum + count);
   int countFor(String source) => recordsBySource[source] ?? 0;
@@ -76,11 +84,18 @@ class HealthReadSummary {
     final records = <String, int>{};
     final hrv = <String, int>{};
     var otherHrv = 0;
+    var manual = 0;
+    var unidentified = 0;
     for (final point in points) {
-      if (point.recordingMethod == RecordingMethod.manual) continue;
+      if (point.recordingMethod == RecordingMethod.manual) {
+        manual++;
+        continue;
+      }
       final source = AppleHealthNormalizer.sourceFor(point);
       if (source != null) {
         records.update(source, (count) => count + 1, ifAbsent: () => 1);
+      } else {
+        unidentified++;
       }
       if (point.type != HealthDataType.HEART_RATE_VARIABILITY_SDNN ||
           point.value is! NumericHealthValue ||
@@ -97,7 +112,23 @@ class HealthReadSummary {
         checkedAt: checkedAt,
         recordsBySource: records,
         hrvBySource: hrv,
-        otherHrvRecords: otherHrv);
+        otherHrvRecords: otherHrv,
+        returnedRecords: points.length,
+        manualRecords: manual,
+        unidentifiedRecords: unidentified);
+  }
+
+  String emptyImportMessage() {
+    if (returnedRecords == 0) {
+      return 'Apple Health returned no sleep, heart-rate, HRV, or workout records from the last 14 days. Check that these records exist in Health and that Boxer Recovery has read access. HealthKit does not reveal whether reading was denied.';
+    }
+    if (manualRecords == returnedRecords) {
+      return 'Apple Health returned only manually entered records in the last 14 days. Boxer Recovery imports recorded health data; manual entries are not treated as wearable measurements.';
+    }
+    if (unidentifiedRecords > 0 && importedRecords == 0) {
+      return 'Apple Health returned records, but none had an identifiable source. No source has been connected; try syncing again after new watch data appears.';
+    }
+    return 'Apple Health returned records, but no usable sleep, heart-rate, HRV, or workout values were found. Check the source and read access in Health.';
   }
 
   String hrvExplanation(String? selectedSource) {

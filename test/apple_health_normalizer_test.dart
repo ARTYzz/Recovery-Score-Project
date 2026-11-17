@@ -65,6 +65,31 @@ void main() {
         isEmpty);
   });
 
+  test('empty HealthKit read reports no returned records, not missing sources',
+      () {
+    final summary = HealthReadSummary.fromPoints([], checkedAt: DateTime.now());
+    expect(summary.returnedRecords, 0);
+    expect(summary.emptyImportMessage(), contains('returned no'));
+  });
+
+  test('read summary distinguishes manual-only and unidentified records', () {
+    final manual = point(
+        HealthDataType.HEART_RATE, '2026-10-27T07:00:00', '2026-10-27T07:00:01',
+        recordingMethod: RecordingMethod.manual, value: 65);
+    final manualSummary =
+        HealthReadSummary.fromPoints([manual], checkedAt: DateTime.now());
+    expect(manualSummary.manualRecords, 1);
+    expect(manualSummary.emptyImportMessage(), contains('manually entered'));
+
+    final unidentified = point(
+        HealthDataType.HEART_RATE, '2026-10-27T07:00:00', '2026-10-27T07:00:01',
+        source: '', sourceId: '', value: 65);
+    final sourceSummary =
+        HealthReadSummary.fromPoints([unidentified], checkedAt: DateTime.now());
+    expect(sourceSummary.unidentifiedRecords, 1);
+    expect(sourceSummary.emptyImportMessage(), contains('identifiable source'));
+  });
+
   test('manually entered Health records are not treated as wearable data', () {
     final manual = point(
         HealthDataType.HEART_RATE, '2026-10-27T07:00:00', '2026-10-27T07:00:01',
