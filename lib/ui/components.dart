@@ -113,47 +113,48 @@ class ChoiceGroup<T> extends StatelessWidget {
   final int columns;
   final IconData? Function(T option)? iconFor;
   @override
-  Widget build(BuildContext context) => Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: options.map((option) {
-        final selected = option == value;
-        final icon = iconFor?.call(option);
-        return SizedBox(
-            width: columns == 1
-                ? double.infinity
-                : columns == 2
-                    ? 165
-                    : 105,
-            child: OutlinedButton(
-                onPressed: () => onChanged(option),
-                style: OutlinedButton.styleFrom(
-                    backgroundColor: selected ? AppColors.lime : Colors.white,
-                    foregroundColor: AppColors.ink,
-                    side: BorderSide(
-                        color: selected ? AppColors.lime : AppColors.line),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13)),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14, horizontal: 9)),
-                child: icon == null
-                    ? Text('$option',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w700))
-                    : Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(icon,
-                            size: 25,
-                            color: selected ? AppColors.ink : AppColors.muted),
-                        const SizedBox(height: 7),
-                        Text('$option',
+  Widget build(BuildContext context) => LayoutBuilder(
+      builder: (context, limits) => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((option) {
+            final selected = option == value;
+            final icon = iconFor?.call(option);
+            return SizedBox(
+                width: columns == 1
+                    ? limits.maxWidth
+                    : (limits.maxWidth - 8 * (columns - 1)) / columns,
+                child: OutlinedButton(
+                    onPressed: () => onChanged(option),
+                    style: OutlinedButton.styleFrom(
+                        backgroundColor:
+                            selected ? AppColors.lime : Colors.white,
+                        foregroundColor: AppColors.ink,
+                        side: BorderSide(
+                            color: selected ? AppColors.lime : AppColors.line),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(13)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 9)),
+                    child: icon == null
+                        ? Text('$option',
                             textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.w700))
-                      ])));
-      }).toList());
+                        : Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(icon,
+                                size: 25,
+                                color:
+                                    selected ? AppColors.ink : AppColors.muted),
+                            const SizedBox(height: 7),
+                            Text('$option',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w700))
+                          ])));
+          }).toList()));
 }
 
 class MetricTile extends StatelessWidget {

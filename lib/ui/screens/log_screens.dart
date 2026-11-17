@@ -9,6 +9,7 @@ import '../../domain/food_journal.dart';
 import '../../domain/head_safety_tracker.dart';
 import '../../domain/urine_colour.dart';
 import '../components.dart';
+import '../body_pain_map.dart';
 import '../design.dart';
 import '../urine_colour_picker.dart';
 
@@ -209,7 +210,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
             title: 'After Training',
             subtitle: 'Log this session in about 30 seconds',
             onBack: () => widget.controller.navigate('today')),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
+        const SectionLabel('01 · Your session'),
+        const SizedBox(height: 12),
         const FieldTitle('Training type'),
         ChoiceGroup(
             options: const [
@@ -227,7 +230,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
                   _ => null,
                 },
             onChanged: (v) => setState(() => type = v)),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
+        const SectionLabel('02 · Session details'),
+        const SizedBox(height: 12),
         if (type == 'Sparring') ...[
           const FieldTitle('Rounds'),
           AppCard(
@@ -254,7 +259,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
               onChanged: (v) => setState(() => contact = v)),
           const SizedBox(height: 22)
         ] else ...[
-          const FieldTitle('Duration'),
+          const FieldTitle('Duration', helper: 'Minutes'),
           ChoiceGroup(
               options: const [20, 30, 45, 60, 90],
               value: duration,
@@ -266,33 +271,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
             options: const ['Easy', 'Moderate', 'Hard'],
             value: intensity,
             onChanged: (v) => setState(() => intensity = v)),
-        const SizedBox(height: 22),
-        const FieldTitle('Soreness / pain'),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final area in [
-            'Head',
-            'Neck',
-            'Shoulders',
-            'Hands',
-            'Wrists',
-            'Arms',
-            'Back',
-            'Lower back',
-            'Hips',
-            'Legs',
-            'Calves'
-          ])
-            Semantics(
-                label: area,
-                button: true,
-                selected: soreness.contains(area),
-                onTap: () => _toggleSoreness(area),
-                child: ExcludeSemantics(
-                    child: FilterChip(
-                        label: Text(area),
-                        selected: soreness.contains(area),
-                        onSelected: (_) => _toggleSoreness(area))))
-        ]),
+        const SizedBox(height: 24),
+        const SectionLabel('03 · Body check'),
+        const SizedBox(height: 12),
+        BodyPainMap(selected: soreness, onToggle: _toggleSoreness),
         if (soreness.isNotEmpty) ...[
           const SizedBox(height: 18),
           const FieldTitle('How does it feel?'),
