@@ -111,6 +111,7 @@ class HealthReadSummary {
   final int restingHrDays;
   final int heartRateDays;
   int get inBedRecords => recordsByType[HealthDataType.SLEEP_IN_BED] ?? 0;
+  int get workoutRecords => recordsByType[HealthDataType.WORKOUT] ?? 0;
   int get importedRecords =>
       recordsBySource.values.fold(0, (sum, count) => sum + count);
   int countFor(String source) => recordsBySource[source] ?? 0;

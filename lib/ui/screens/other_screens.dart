@@ -563,6 +563,16 @@ class ConnectionsScreen extends StatelessWidget {
           name: sample.sourceName, id: sample.sourceId);
     }
 
+    String sourceDetails(String source) {
+      final rows = imported.where((sample) => sample.source == source).toList();
+      int daysWith(num? Function(WearableSample) read) =>
+          rows.where((sample) => (read(sample) ?? 0) > 0).length;
+      final last = rows.last;
+      return '${rows.length} day(s) imported · ${lastHealthRead?.countFor(source) ?? 0} record(s) in last read\n'
+          'Sleep ${daysWith((s) => s.sleepMinutes)} · HRV ${daysWith((s) => s.hrv)} · Resting HR ${daysWith((s) => s.restingHr)} · Heart Rate ${daysWith((s) => s.heartRate)} · Workout ${daysWith((s) => s.workoutMinutes)} source-day(s)\n'
+          'Source ID: ${last.sourceId ?? 'Not provided'}';
+    }
+
     sourceKeys.sort((a, b) => sourceLabel(a).compareTo(sourceLabel(b)));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       PageHeader(
@@ -598,8 +608,7 @@ class ConnectionsScreen extends StatelessWidget {
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked),
                 title: Text(sourceLabel(source)),
-                subtitle: Text(
-                    '${imported.where((sample) => sample.source == source).length} day(s) imported · ${controller.appleHealth.lastReadSummary?.countFor(source) ?? 0} record(s) in last read\nSource ID: ${imported.lastWhere((sample) => sample.source == source).sourceId ?? 'Not provided'}'),
+                subtitle: Text(sourceDetails(source)),
                 onTap: () => controller.selectHealthSource(source)),
         ],
         if (lastHealthRead != null) ...[
@@ -610,6 +619,9 @@ class ConnectionsScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
               'Readable source-days: Sleep ${lastHealthRead.sleepDays} · HRV ${lastHealthRead.hrvDays} · Resting HR ${lastHealthRead.restingHrDays} · Heart Rate ${lastHealthRead.heartRateDays}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text(
+              'Other records: Workout ${lastHealthRead.workoutRecords} · In bed ${lastHealthRead.inBedRecords} · Manual ${lastHealthRead.manualRecords} · Without source ${lastHealthRead.unidentifiedRecords}',
               style: const TextStyle(color: AppColors.muted, fontSize: 12)),
           if (lastHealthRead.sleepDays == 0 &&
               lastHealthRead.hrvDays == 0 &&
