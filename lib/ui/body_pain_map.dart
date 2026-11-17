@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart' hide Text;
 
 import 'app_text.dart';
+import 'anatomy_figure_painter.dart';
 import 'components.dart';
 import 'design.dart';
 
-/// A tappable, schematic body map. Area names match TrainingSession.soreness.
+/// A tappable body map. Area names match TrainingSession.soreness.
 class BodyPainMap extends StatefulWidget {
   const BodyPainMap(
       {super.key, required this.selected, required this.onToggle});
@@ -73,69 +74,77 @@ class _BodyPainMapState extends State<BodyPainMap> {
           ]),
           const SizedBox(height: 14),
           Center(
-            child: Container(
-              width: 280,
-              height: 350,
-              decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(18)),
-              child: LayoutBuilder(builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final height = constraints.maxHeight;
-                return Stack(children: [
-                  Positioned.fill(
-                      child: CustomPaint(painter: _BodyPainter(back))),
-                  for (final spot in back ? backSpots : frontSpots)
-                    Positioned(
-                      left: width * spot.x - 22,
-                      top: height * spot.y - 22,
-                      child: Semantics(
-                        label: AppCopy.of(context, spot.area),
-                        button: true,
-                        selected: widget.selected.contains(spot.area),
-                        child: Tooltip(
-                          message: AppCopy.of(context, spot.area),
-                          child: InkWell(
-                            key: ValueKey('body-${spot.area}'),
-                            onTap: () => widget.onToggle(spot.area),
-                            borderRadius: BorderRadius.circular(22),
-                            child: SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Center(
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  width: widget.selected.contains(spot.area)
-                                      ? 26
-                                      : 18,
-                                  height: widget.selected.contains(spot.area)
-                                      ? 26
-                                      : 18,
-                                  decoration: BoxDecoration(
-                                      color: widget.selected.contains(spot.area)
-                                          ? AppColors.red
-                                          : Colors.white,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 300),
+              child: AspectRatio(
+                aspectRatio: 280 / 350,
+                child: Container(
+                  decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(18)),
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final height = constraints.maxHeight;
+                    return Stack(children: [
+                      Positioned.fill(
+                          child: CustomPaint(
+                              painter: AnatomyFigurePainter(back: back))),
+                      for (final spot in back ? backSpots : frontSpots)
+                        Positioned(
+                          left: width * spot.x - 22,
+                          top: height * spot.y - 22,
+                          child: Semantics(
+                            label: AppCopy.of(context, spot.area),
+                            button: true,
+                            selected: widget.selected.contains(spot.area),
+                            child: Tooltip(
+                              message: AppCopy.of(context, spot.area),
+                              child: InkWell(
+                                key: ValueKey('body-${spot.area}'),
+                                onTap: () => widget.onToggle(spot.area),
+                                borderRadius: BorderRadius.circular(22),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Center(
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 150),
+                                      width: widget.selected.contains(spot.area)
+                                          ? 26
+                                          : 18,
+                                      height:
+                                          widget.selected.contains(spot.area)
+                                              ? 26
+                                              : 18,
+                                      decoration: BoxDecoration(
                                           color: widget.selected
                                                   .contains(spot.area)
-                                              ? Colors.white
-                                              : AppColors.teal,
-                                          width: 2.5),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                            color: Color(0x3322242b),
-                                            blurRadius: 5)
-                                      ]),
+                                              ? AppColors.red
+                                              : Colors.white,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: widget.selected
+                                                      .contains(spot.area)
+                                                  ? Colors.white
+                                                  : AppColors.teal,
+                                              width: 2.5),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                                color: Color(0x3322242b),
+                                                blurRadius: 5)
+                                          ]),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ]);
-              }),
+                    ]);
+                  }),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -174,75 +183,4 @@ class _BodySpot {
   final String area;
   final double x;
   final double y;
-}
-
-class _BodyPainter extends CustomPainter {
-  const _BodyPainter(this.back);
-  final bool back;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.scale(size.width / 280, size.height / 350);
-    final fill = Paint()..color = const Color(0xffdce5e7);
-    final outline = Paint()
-      ..color = const Color(0xffa7b5ba)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final limb = Paint()
-      ..color = fill.color
-      ..strokeWidth = 25
-      ..strokeCap = StrokeCap.round;
-    final limbLine = Paint()
-      ..color = outline.color
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-
-    void segment(Offset start, Offset end) {
-      canvas.drawLine(start, end, limb);
-      canvas.drawLine(start, end, limbLine);
-    }
-
-    segment(const Offset(105, 94), const Offset(74, 147));
-    segment(const Offset(74, 147), const Offset(54, 205));
-    segment(const Offset(175, 94), const Offset(206, 147));
-    segment(const Offset(206, 147), const Offset(226, 205));
-    segment(const Offset(124, 184), const Offset(119, 307));
-    segment(const Offset(156, 184), const Offset(161, 307));
-    final torso = Path()
-      ..moveTo(109, 78)
-      ..quadraticBezierTo(140, 71, 171, 78)
-      ..lineTo(162, 148)
-      ..lineTo(165, 190)
-      ..quadraticBezierTo(140, 203, 115, 190)
-      ..lineTo(118, 148)
-      ..close();
-    canvas.drawPath(torso, fill);
-    canvas.drawPath(torso, outline);
-    canvas.drawOval(const Rect.fromLTWH(41, 201, 23, 34), fill);
-    canvas.drawOval(const Rect.fromLTWH(216, 201, 23, 34), fill);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            const Rect.fromLTWH(132, 57, 16, 24), const Radius.circular(6)),
-        fill);
-    canvas.drawOval(const Rect.fromLTWH(119, 16, 42, 52), fill);
-    canvas.drawOval(const Rect.fromLTWH(119, 16, 42, 52), outline);
-    if (back) {
-      canvas.drawLine(const Offset(140, 90), const Offset(140, 177), limbLine);
-      canvas.drawLine(const Offset(118, 96), const Offset(137, 125), limbLine);
-      canvas.drawLine(const Offset(162, 96), const Offset(143, 125), limbLine);
-      canvas.drawLine(const Offset(121, 163), const Offset(159, 163), limbLine);
-    } else {
-      canvas.drawLine(const Offset(140, 88), const Offset(140, 122), limbLine);
-      canvas.drawArc(
-          const Rect.fromLTWH(116, 93, 48, 37), 0.15, 2.75, false, limbLine);
-      canvas.drawLine(const Offset(124, 137), const Offset(156, 137), limbLine);
-      canvas.drawLine(const Offset(125, 151), const Offset(155, 151), limbLine);
-      canvas.drawLine(const Offset(128, 165), const Offset(152, 165), limbLine);
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_BodyPainter oldDelegate) => oldDelegate.back != back;
 }
