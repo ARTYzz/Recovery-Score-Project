@@ -26,6 +26,17 @@ The primary user is a professional boxer using the application independently dur
 | P2       | Useful future enhancement       |
 | P3       | Optional / long-term feature    |
 
+### MoSCoW mapping
+
+| Priority | MoSCoW | Stories |
+| -------- | ------ | ------- |
+| P0 | **MUST** | US-01 – US-04, US-06, US-08 – US-20, US-22 – US-28, US-31 – US-33, US-38, US-39 |
+| P1 | SHOULD | US-05, US-07, US-21, US-29, US-30, US-34, US-35, US-40 |
+| P2 | COULD | US-36, US-37 |
+| P3 | WON'T (this release) | none listed; see "Not Required for Initial Prototype" in section 5 |
+
+The MUST tasks used in testing (T1–T7) are mapped to these stories in [Test-Plan.md](../03-Test/Test-Plan.md).
+
 ---
 
 # 3. Epic Overview

@@ -22,3 +22,8 @@ legacy_capacitor/android/app/src/main/java/io/flutter/plugins/GeneratedPluginReg
 screenshots/flutter-*.png
 screenshots/presentation-*.png
 screenshots/pdf-reference/
+
+# Secrets
+.env
+.env.*
+!.env.example

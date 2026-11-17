@@ -4,6 +4,10 @@
 
 **Timeline:**  Sept 2026 – Nov 2026 
 
+**Live URL:** no public web deployment yet. The Android build is in the repo at [output/BoxerRecovery-debug.apk](../../output/BoxerRecovery-debug.apk); setup steps are in [README.md](../../README.md). _TO FILL: add the live URL if one is deployed._
+
+> **Evidence note:** no real boxers have tested the app yet. All test results below come from **PROXY** users (8 friends outside the team, not boxers) on 17 Nov 2026 — see [no-real-user-test.md](../../test/no-real-user-test.md).
+
 ## 1. The Problem
 
 Professional and amateur boxers undergo intense, grueling "fight camps" leading up to a bout. During this phase, balancing training load and recovery is critical to avoid overtraining, injuries, or peaking too early. However, athletes face several massive hurdles:
@@ -34,27 +38,35 @@ Instead of a single, vague "Readiness Score," we designed a Recovery Engine that
 
 ### C. Streamlining the User Journey (The 90-Second Loop)
 We designed the daily flow to minimize friction:
-* **Automated Syncing:** Integrated wearable data architectures (Apple Health / Health Connect) and simulated FightCamp metrics to pull in sleep, HR, and punch data automatically.
-* **Morning Check-In:** A fast, 30-second tap-based flow (no typing) for morning weight, urine color, and mood.
+* **Automated Syncing:** Real Apple Health import on iPhone (sleep, HRV, resting HR, workouts). Health Connect is designed for but not yet integrated. FightCamp punch data is a clearly labelled mock.
+* **Morning Check-In:** A tap-based flow (no typing) for morning weight, urine color, and mood, designed for a 30-second target.
 * **Smart Training Logs:** Segmented training loads into four boxing-specific categories (Sparring, Boxing/Technical, Conditioning, Strength) so the app knows *exactly* what type of fatigue is accumulating.
 
-### D. User Acceptance Testing (UAT)
-We built a functional prototype (Flutter/Android/Web) and took it to a real-world testing environment at MFU Gym. We conducted moderated UAT sessions with amateur and professional boxers, timing their interactions and measuring their task success rates without assistance.
+### D. Testing
+We built a functional prototype (Flutter/Android/Web). A real-user test with boxers at MFU Gym was planned ([Test-Plan.md](../03-Test/Test-Plan.md)) but could not be run in time: we could not recruit boxers in camp before the deadline, and the app is not yet in an app store. Instead we:
+* ran **85 automated tests** (85/85 pass on `main`, 18 Nov 2026);
+* ran a moderated, timed task test (T1–T7) with **8 PROXY users** — friends outside the team who are not boxers — followed by a SUS survey ([session-logs.md](../03-Test/session-logs.md), [sus-results.md](../03-Test/sus-results.md));
+* did a heuristic review and collected published research as SECONDARY evidence ([no-real-user-test.md](../../test/no-real-user-test.md)).
 
 ---
 
 ## 3. The Outcome
 
-The prototype successfully proved that complex physiological and subjective data could be distilled into fast, actionable daily guidance for fighters. 
+First-time PROXY users could complete every core task, but the app is not yet fast or easy enough. All numbers are from PROXY users (n = 8, not boxers) unless stated; full table in [comparison-table.md](comparison-table.md).
 
-### Key Metrics & Successes:
-* **Task Success Rate:** Achieved an **85% independent success rate** across all core workflows, exceeding our 80% target.
-* **Speed to Insight:** The time it took athletes to assess their readiness and decide if sparring was safe dropped from 120 seconds (manual methods) to just **35 seconds**.
-* **Frictionless Input:** The combined Morning Check-in and Post-Training Log was completed by users in an average of **75 seconds**, successfully beating our < 90-second constraint.
-* **High Utility (TAM):** The Technology Acceptance Model survey yielded a solid **4.25 / 5.0**, proving that fighters found the tool highly useful for their fight camp planning.
+### Key Metrics
+* **Task success:** 56/56 tasks completed (100%); **51/56 without help (91%)**, above the 80% target.
+* **Sparring decision (T4):** median **37.5 s**, within the 45 s target. A by-hand "before" time for this task was not measured separately.
+* **Daily input (T2 + T5):** median **122.5 s** — **above** the 90 s goal; only 1 of 8 users was under 90 s.
+* **Total time T1–T7:** by hand (TEAM, 1 run) 226 s vs in the app median 352.5 s — the app was **56% slower** for first-time users.
+* **SUS:** **56.9**, below the 68 average.
+* **Acceptance items** (10 team-written items, 5-point): mean **4.25 / 5** — from non-boxers, so it does not show that fighters find it useful.
+* **Automated tests:** 85/85 pass, including 29 recovery-rule and Safety Gate tests.
 
-### Lessons Learned & Next Steps:
-While the core logic and utility were highly validated, the System Usability Scale (SUS) score came in at **56.9** (below the 68 industry average). User feedback highlighted specific areas for iteration before a production launch:
-1. **Visual Polish:** Users found the interface slightly text-heavy. The next iteration will replace text labels with intuitive UI icons.
-2. **Localization:** Thai translations require refinement to match natural, conversational gym terminology.
-3. **AI Integration:** Boxers explicitly requested an **"AI Advice" (มีAiแนะนำ)** feature to translate the data into an even more conversational, coach-like summary. This has been added to our P1 backlog for the next release.
+### Lessons Learned & Next Steps
+The core logic works as specified in tests, but usability is below average. PROXY feedback ([issue-log.md](../03-Test/issue-log.md)):
+1. **Data entry:** training/nutrition entry (T5) caused 4 of 10 errors — simplify it first (I-01).
+2. **Localization:** Thai translation is incomplete in places (I-02).
+3. **Visual polish:** text-heavy screens, few icons (I-10).
+4. **AI Integration:** one respondent asked for **"AI Advice" (มีAiแนะนำ)**. The app currently has no AI; this is a possible future feature, not yet in the backlog.
+5. **Real-user test:** run the [ready-to-run plan](../../test/no-real-user-test.md) with boxers once a store/test build is available.

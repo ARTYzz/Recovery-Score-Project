@@ -28,16 +28,17 @@ What this means: every task time, completion rate, error count and SUS score we 
 
 ### 2.1 Automated tests (AUTOMATED)
 
-Branch `main` at commit `ff08c6e` contains 73 `test(...)` / `testWidgets(...)` cases across 13 files (count from `grep` on `test/*.dart`). They check rules, data handling and some UI behaviour, not usability with people.
+Branch `main` at commit `65d7ba5` contains 85 `test(...)` / `testWidgets(...)` cases across 16 files (count from `grep` on `test/*.dart`). They check rules, data handling and some UI behaviour, not usability with people.
 
 | File | Cases | What it checks | Backlog items |
 |---|---|---|---|
 | [recovery_engine_test.dart](recovery_engine_test.dart) | 27 | Six independent domain scores; limiter = lowest measured domain; head symptoms and severe pain override training advice; weight change flagged without cut advice; missing HRV stays missing; urine colours (incl. red/purple) handled without a medical claim | US-10, US-22, US-24 – US-26, US-31 – US-33 |
 | [onboarding_flow_test.dart](onboarding_flow_test.dart) | 11 | No fabricated wearable data for a new athlete; profile required fields; optional fight date; fight expiry and archive | US-01, US-02 |
-| [apple_health_normalizer_test.dart](apple_health_normalizer_test.dart) | 7 | Source records kept separate; manual entries not treated as wearable; no HRV guessed from heart rate | US-04, US-06, US-39 |
+| [apple_health_normalizer_test.dart](apple_health_normalizer_test.dart) | 11 | Source records kept separate; manual entries not treated as wearable; no HRV guessed from heart rate | US-04, US-06, US-39 |
 | [trends_dashboard_test.dart](trends_dashboard_test.dart) | 6 | Calendar buckets; gaps stay null (not zero) | US-34, US-35 |
-| [wearable_history_merger_test.dart](wearable_history_merger_test.dart) | 6 | Sync merges without losing history; disconnect removes imported records | US-04, US-38 |
+| [wearable_history_merger_test.dart](wearable_history_merger_test.dart) | 9 | Sync merges without losing history; disconnect removes imported records | US-04, US-38 |
 | [athlete_storage_test.dart](athlete_storage_test.dart) | 5 | Encrypted storage, migration, tamper-checked backup | US-38, US-40 |
+| [device_key_flow_test.dart](device_key_flow_test.dart) | 3 | Account opens with a protected device key; missing key keeps encrypted data | US-38 |
 | [language_switch_test.dart](language_switch_test.dart) | 3 | Language choice persists and changes visible text | — |
 | [food_journal_test.dart](food_journal_test.dart) | 2 | Nutrition estimates and per-day totals | US-16 |
 | [head_safety_flow_test.dart](head_safety_flow_test.dart) | 2 | Self-reported medical plan never creates sparring clearance | US-31 |
@@ -45,10 +46,12 @@ Branch `main` at commit `ff08c6e` contains 73 `test(...)` / `testWidgets(...)` c
 | [nutrition_check_form_test.dart](nutrition_check_form_test.dart) | 1 | Nutrition check records three answers on a phone-sized screen | US-16 |
 | [training_type_icons_test.dart](training_type_icons_test.dart) | 1 | Training types show distinct icons; selection still works | US-13 |
 | [urine_colour_picker_test.dart](urine_colour_picker_test.dart) | 1 | Seven colours selectable; help guide opens | US-10 |
+| [today_available_metrics_test.dart](today_available_metrics_test.dart) | 1 | Today shows only available health values and updates after sync | US-04, US-06 |
+| [today_refresh_test.dart](today_refresh_test.dart) | 1 | Pull-to-refresh on Today requests a sync | US-04 |
 
-**Result of `flutter test`:** `00:55 +73: All tests passed!` — **73 / 73 passed, 0 failed**. Run on 17 Nov 2026 on a clean checkout of `main` at commit `ff08c6e`, Flutter 3.50.0 (stable, Dart 3.14.0), Windows.
+**Result of `flutter test`:** `00:41 +85: All tests passed!` — **85 / 85 passed, 0 failed**. Run on 18 Nov 2026 on a clean checkout of `main` at commit `65d7ba5`, Flutter 3.50.0 (stable, Dart 3.14.0), Windows.
 
-**Result of `flutter analyze`:** 31 issues, all level `info`, all `deprecated_member_use` (APIs deprecated in Flutter 3.47+, newer than the version the project was written with). 0 errors, 0 warnings.
+**Result of `flutter analyze`:** 34 issues, all level `info`, all `deprecated_member_use` (APIs deprecated in Flutter 3.47+, newer than the version the project was written with). 0 errors, 0 warnings.
 
 What this proves: the scoring and safety rules behave as written in the spec for the tested inputs.
 What it does **not** prove: that boxers can use the app, understand it, or find it useful.

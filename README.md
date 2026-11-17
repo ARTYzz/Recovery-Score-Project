@@ -1,5 +1,16 @@
 # Recovery Score Project
 
+Project documents (Discover → Deliver): [.docs/final/README.md](.docs/final/README.md)
+
+## Quick start
+
+1. Install Flutter (stable channel) and run `flutter pub get`.
+2. Environment: **none needed.** There is no backend and no API key; see [.env.example](.env.example).
+3. Run in a browser: `flutter run -d chrome` (Apple Health is not available in the browser; wearable metrics show `Unavailable`). An Android debug build is at [output/BoxerRecovery-debug.apk](output/BoxerRecovery-debug.apk).
+4. Run tests: `flutter test` and `flutter analyze`.
+
+**Test account:** the app has no server accounts; all data stays on the device. To try it, create a local profile with invented data, for example: name `Test Boxer`, current weight `72.5` kg, height `175` cm, fight date in the next 8 weeks (or skip). Do not use real athlete health data for testing ([.docs/rule.md](.docs/rule.md)).
+
 ## Flutter mobile MVP
 
 The active app is Flutter for iOS and Android, with a browser preview for UI and manual workflows. The former Capacitor application is in `legacy_capacitor/` for reference.
