@@ -1,17 +1,64 @@
-# Recovery Score Project
+# Boxer Recovery App
 
-Project documents (Discover → Deliver): [.docs/final/README.md](.docs/final/README.md)
+Flutter mobile app for boxer recovery. iOS and Android are the main targets; Chrome is a UI preview and cannot read Apple Health. Project documents: [.docs/final/README.md](.docs/final/README.md).
 
-## Quick start
+## Requirements
 
-1. Install Flutter (stable channel) and run `flutter pub get`.
-2. Environment: **none needed.** There is no backend and no API key; see [.env.example](.env.example).
-3. Run in a browser: `flutter run -d chrome` (Apple Health is not available in the browser; wearable metrics show `Unavailable`). An Android debug build is at [output/BoxerRecovery-debug.apk](output/BoxerRecovery-debug.apk).
-4. Run tests: `flutter test` and `flutter analyze`.
+- Flutter SDK on the stable channel, with `flutter` available in your terminal. Check with `flutter doctor -v`.
+- For iPhone: a Mac with Xcode, CocoaPods, and an iPhone or iOS simulator. A physical iPhone is required to test real Apple Health records.
+- For Android: Android SDK and an Android phone or emulator. Health Connect is not integrated in this MVP.
+- For UI-only testing: Chrome on Windows or macOS.
 
-**Test account:** the app has no server accounts; all data stays on the device. To try it, create a local profile with invented data, for example: name `Test Boxer`, current weight `72.5` kg, height `175` cm, fight date in the next 8 weeks (or skip). Do not use real athlete health data for testing ([.docs/rule.md](.docs/rule.md)).
+## Setup
 
-## Flutter mobile MVP
+Clone the repository, then run these commands from its root (skip the first two lines if you already have the project):
+
+```sh
+git clone https://github.com/ARTYzz/Recovery-Score-Project.git
+cd Recovery-Score-Project
+flutter doctor -v
+flutter pub get
+flutter devices
+```
+
+See [.env.example](.env.example). **No `.env` file, API key, backend, or database server is required.** The example documents that there are currently no environment variables; copying it to `.env` does not configure any connection. Athlete data is stored locally on each installation.
+
+## Run the app
+
+| Target | Command | What you can test |
+| --- | --- | --- |
+| Chrome UI preview | `flutter run -d chrome` | Profile, check-ins, training, Nutrition, Today, Trends, recovery action, and labelled FightCamp mock data. Apple Health is unavailable. |
+| Android phone/emulator | `flutter run -d DEVICE_ID` | Native mobile UI and manual workflow. Live Health Connect data is not supported yet. |
+| iPhone | `flutter run -d DEVICE_ID` | Native mobile UI and real Apple Health read access after permission is granted. |
+
+Replace `DEVICE_ID` with the identifier shown by `flutter devices`. On Mac, open `ios/Runner.xcworkspace` in Xcode and select your Development Team under **Runner → Signing & Capabilities** before the first iPhone run. Keep the iPhone unlocked and trust the developer certificate if iOS prompts you. An iOS simulator can run the UI, but it is not a substitute for testing watch data on a physical iPhone.
+
+If Flutter is not on PATH on this Windows workspace, the local SDK can be called as `.\.toolchains\flutter\bin\flutter.bat` instead of `flutter`. This folder is local and is not included in Git; other machines should install Flutter normally. The existing [Android debug APK](output/BoxerRecovery-debug.apk) is a convenience build, while `flutter run` uses the current source code.
+
+## Test account / test profile
+
+There is **no shared test account or sign-in service**. On the first launch, create a local profile with non-sensitive example data:
+
+| Field | Example |
+| --- | --- |
+| Display name | `Test Boxer` |
+| Current weight | `72.5` kg |
+| Height | `175` cm |
+| Next fight date | Any future date, or leave blank |
+| Target weigh-in weight | Optional; leave blank for a simple test |
+
+Accept the Privacy Notice, tap **Create profile**, then **Continue → Start** and complete the Morning Check-in. On iPhone, **Connect Apple Health** is optional and requires readable records plus permission; if skipped or unavailable, wearable values remain `Unavailable`. FightCamp punch sessions load automatically as clearly labelled mock data. The test profile is saved on that device and remains after restarting the app. Do not enter another athlete's real health data just to test the UI ([safety rules](.docs/rule.md)).
+
+## Run checks
+
+```sh
+flutter analyze
+flutter test
+```
+
+For a persistence check, save a Morning Check-in or Training Session, close and reopen the app, and confirm the record is still present. Browser, Android, and iPhone installations have separate local data.
+
+## Current implementation
 
 The active app is Flutter for iOS and Android, with a browser preview for UI and manual workflows. The former Capacitor application is in `legacy_capacitor/` for reference.
 
@@ -19,9 +66,9 @@ Wearable data is **real Apple Health data on iPhone**. The app requests read acc
 
 Each HealthKit sync reads a 14-day window and merges returned watch days into encrypted local history. Older saved days remain available to Trends. A partial day updates only the metrics returned; an empty read keeps saved history and the connection state, while showing a warning. Records remain separate by source. In Settings → Connected Sources, choose the source used for recovery assessment and trends. Explicit Disconnect clears locally imported watch history.
 
-### Run and test
+### Apple Health synchronization on iPhone
 
-On a Mac with Xcode and a connected iPhone, run `flutter pub get`, open `ios/Runner.xcworkspace` to select a signing team, and run `flutter run -d DEVICE_ID`. Create a real athlete profile, grant Apple Health read access during onboarding (or later in Settings → Connected Sources), complete the morning check-in, then view Today. While a connected account is open on iPhone, native HealthKit observer queries notify Flutter when sleep, HRV, heart-rate, or workout records change; the app then repeats its normal HealthKit read and updates Today. The app also reads when it opens, when returning to the app, when **Sync now** is tapped, or when Today is pulled down from the top. The Today pull keeps existing cards visible while reading. HealthKit notifications do not include the new values and may arrive after a wearable's companion app writes them to Apple Health. This version does not request background HealthKit delivery or wake a closed app; updates while away are picked up on return. Revoke platform read permission in the iPhone Health app; Disconnect in Boxer Recovery stops observation and clears imported local records.
+After granting Apple Health read access during onboarding or in Settings → Connected Sources, the app reads available records. While a connected account is open on iPhone, native HealthKit observer queries notify Flutter when sleep, HRV, heart-rate, or workout records change; the app then repeats its normal HealthKit read and updates Today. The app also reads when it opens, when returning to the app, when **Sync now** is tapped, or when Today is pulled down from the top. The Today pull keeps existing cards visible while reading. HealthKit notifications do not include the new values and may arrive after a wearable's companion app writes them to Apple Health. This version does not request background HealthKit delivery or wake a closed app; updates while away are picked up on return. Revoke platform read permission in the iPhone Health app; Disconnect in Boxer Recovery stops observation and clears imported local records.
 
 Create Profile asks for current weight (kg), height (cm), and an optional target weight for the official weigh-in. Settings → Edit Profile lets the athlete change these values, display name, and fight date. A new morning check-in updates the profile's current weight. Old saved official weigh-in weights load as target weights. Target weight is shown for monitoring only; the app does not calculate a weight-cut plan.
 
@@ -30,15 +77,6 @@ The next fight date is optional. When the scheduled day has passed, the app arch
 Morning Check-in offers seven labelled urine appearances (yellow, red, purple, brown, cloudy grey, orange, and teal/green) with an in-app colour guide. Older check-ins using the previous five yellow-shade codes remain readable. Unusual hues are not converted into a dehydration score; possible blood-like red or brown reports trigger a non-diagnostic Safety Gate warning.
 
 Settings → Language switches the mobile interface between English and Thai immediately. The choice is stored on the device and also applies to the setup and unlock screens after restarting the app. Health records and source values are unchanged by a language switch.
-
-On Windows, run from the project root:
-
-```powershell
-.\.toolchains\flutter\bin\flutter.bat pub get
-.\.toolchains\flutter\bin\flutter.bat run -d chrome
-```
-
-The browser can exercise profile, manual check-ins, training logs, Nutrition, Recovery Action, and FightCamp mock, but cannot access Apple Health. Wearable metrics remain `Unavailable` there. Run `flutter test` and `flutter analyze` to verify changes.
 
 Existing real athlete accounts keep manually entered records and live HealthKit samples. On the first unlock after this update, old synthetic wearable samples and evaluations derived from them are removed; real manual records remain. Legacy full-demo accounts are retired and show the real profile setup screen. Creating a profile replaces that old demo vault.
 
@@ -68,6 +106,7 @@ Nutrition remains a quick Yes/No, protein, and carbohydrate check. The optional 
 The live path is **watch or ring → its companion app (where required) → Apple Health → Boxer Recovery**. The iOS adapter discovers sources from each readable HealthKit sample's reported source ID and name; it has no brand allowlist and no direct vendor connection. Manually entered Health records are excluded. A HealthKit source may identify a companion app rather than a particular physical device. Missing values remain `Unavailable`; the app does not calculate HRV or sleep from unrelated heart-rate samples. Today shows the latest readable Sleep, HRV, and Resting HR card from each available source, labelling a card as view-only when its source differs from the one selected for recovery assessment. Scores, personal baselines, and Trends continue to use only the selected source, so measurements from different sources are not combined silently. Choose that source in Settings → Connected Sources; **Sync now** remains available there.
 
 The Today card labelled **Resting HR** reads Apple Health's resting-heart-rate category, not a general heart-rate sample. If Resting HR is absent but ordinary Heart Rate is readable, Today shows a separate **Last HR** card labelled as view-only; ordinary Heart Rate is not substituted into the Resting HR recovery baseline. HRV is read only from Apple Health's HRV (SDNN) category. If that category has no readable record from the selected source, HRV remains `Unavailable`; Sleep & Heart can still use sleep and resting HR as their own baseline accumulates. Connected Sources shows the returned record count and usable Sleep, HRV, Resting HR, Heart Rate, and Workout source-days for each imported source, plus counts of workout, time-in-bed, manual, and unidentified records from the last 14-day read. Time in bed is not treated as sleep. A failure to read one category does not discard other readable categories. HealthKit does not expose a reliable read-permission-denied status for individual categories.
+
 ## 1. Project Overview
 
 This project proposes a **boxing recovery tracking application for professional boxers**. The application is designed for athletes to use independently during a fight camp to understand their daily recovery condition and make safer training decisions.
