@@ -52,7 +52,7 @@ Evidence labels: **PROXY** = people outside the team who are not boxers; **TEAM*
 | Role statement — Hassakorn Buaurai (6631503127) | [6631503127-Hassakorn.md](role-statements/6631503127-Hassakorn.md) |
 | Role statement — Pawornpat Kongdaeng (6531503111), Product Owner | [6531503111-Pawornpat.md](role-statements/6531503111-Pawornpat.md) |
 | Role statement — Thiraphat Kongkan (6631503023) | _TO ADD_ |
-| Role statement — Chisanucha Vongtalay (6631503125) | _TO ADD_ |
+| Role statement — Chisanucha Vongtalay (6631503125), Tech Lead | [6631503125-Chisanucha.md](role-statements/6631503125-Chisanucha.md) |
 
 ## 5. Other
 
