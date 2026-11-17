@@ -159,11 +159,15 @@ class ChoiceGroup<T> extends StatelessWidget {
 
 class MetricTile extends StatelessWidget {
   const MetricTile(this.label, this.value,
-      {super.key, this.unit = '', this.icon = Icons.monitor_heart_outlined});
+      {super.key,
+      this.unit = '',
+      this.icon = Icons.monitor_heart_outlined,
+      this.caption = 'Latest available'});
   final String label;
   final String value;
   final String unit;
   final IconData icon;
+  final String caption;
   @override
   Widget build(BuildContext context) => AppCard(
       padding: const EdgeInsets.all(13),
@@ -186,8 +190,12 @@ class MetricTile extends StatelessWidget {
               text: unit,
               style: const TextStyle(fontSize: 13, color: AppColors.muted))
         ])),
-        const Text('Latest available',
-            style: TextStyle(fontSize: 11, color: AppColors.muted))
+        Tooltip(
+            message: caption,
+            child: Text(caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: AppColors.muted)))
       ]));
 }
 

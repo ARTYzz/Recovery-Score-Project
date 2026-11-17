@@ -175,10 +175,13 @@ void main() {
 
     expect(source.syncCalls, initialReads + 1);
     expect(controller.data!.latestSleepSample?.sleepMinutes, 440);
-    expect(controller.data!.latestMetricSample((s) => s.restingHr)?.restingHr,
-        49);
-    expect((await AthleteVault().unlock('test-passphrase'))
-        .latestSleepSample?.sleepMinutes, 440);
+    expect(
+        controller.data!.latestMetricSample((s) => s.restingHr)?.restingHr, 49);
+    expect(
+        (await AthleteVault().unlock('test-passphrase'))
+            .latestSleepSample
+            ?.sleepMinutes,
+        440);
 
     await controller.disconnectAppleHealth();
     source.events.add(null);
@@ -225,6 +228,22 @@ void main() {
     final trends = TrendsDashboard.fromData(
         athlete, TrendWindow(TrendPeriod.year, DateTime(2026, 11, 12)));
     expect(trends.metrics['Sleep']!.values.whereType<double>(), isEmpty);
+  });
+
+  test('Today card can show another source without changing scoring source',
+      () {
+    final athlete = AthleteData();
+    athlete.connections['healthSource'] = HealthSource.huawei;
+    athlete.wearables.addAll([
+      sample('2026-11-17', source: HealthSource.huawei, heartRate: 75),
+      sample('2026-11-18', source: HealthSource.garmin, sleep: 420, rhr: 52),
+    ]);
+    expect(athlete.latestSleepSample, isNull);
+    expect(athlete.latestVisibleHealthMetric((s) => s.sleepMinutes)?.source,
+        HealthSource.garmin);
+    expect(
+        athlete.latestVisibleHealthMetric((s) => s.restingHr)?.restingHr, 52);
+    expect(athlete.activeHealthSource, HealthSource.huawei);
   });
 
   test('old labelled history moves to its real HealthKit identity on sync', () {

@@ -34,6 +34,12 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final athlete = AthleteData(onboardingStage: 'complete');
+    athlete.connections['healthSource'] = HealthSource.huawei;
+    athlete.wearables.add(WearableSample(
+        date: localDay(),
+        source: HealthSource.huawei,
+        mode: 'LIVE',
+        heartRate: 70));
     athlete.saveMorning(
         MorningCheckIn(date: localDay(), weight: 73, urine: 2, mood: 'OK'));
     final controller = RefreshController()
@@ -55,7 +61,15 @@ void main() {
     expect(find.text('Last sleep'), findsOneWidget);
     expect(find.text('Resting HR'), findsOneWidget);
     expect(find.text('Last HRV'), findsNothing);
-    expect(controller.data!.latestSleepSample!.sleepMinutes, 425);
+    expect(find.text('View only'), findsOneWidget);
+    expect(find.text('Test watch · not in recovery score'), findsNWidgets(2));
+    expect(
+        controller.data!
+            .latestVisibleHealthMetric((sample) => sample.sleepMinutes)
+            ?.sleepMinutes,
+        425);
+    expect(controller.data!.latestSleepSample, isNull);
+    expect(controller.data!.activeHealthSource, HealthSource.huawei);
     expect(tester.takeException(), isNull);
   });
 }

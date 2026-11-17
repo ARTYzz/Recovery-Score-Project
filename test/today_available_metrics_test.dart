@@ -1,5 +1,6 @@
 import 'package:boxer_recovery/app/boxer_controller.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
+import 'package:boxer_recovery/domain/health_source.dart';
 import 'package:boxer_recovery/ui/components.dart';
 import 'package:boxer_recovery/ui/screens/home_screens.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final athlete = AthleteData();
+    final healthSource =
+        HealthSource.fromProvenance(name: 'Test watch', id: 'test.watch')!;
     final controller = BoxerController()..data = athlete;
     Future<void> showToday() async => tester.pumpWidget(MaterialApp(
         home: Scaffold(
@@ -28,7 +31,7 @@ void main() {
 
     athlete.wearables.add(WearableSample(
         date: athlete.currentDay,
-        source: 'test-source',
+        source: healthSource,
         mode: 'LIVE',
         restingHr: 51));
     await showToday();
@@ -39,7 +42,7 @@ void main() {
 
     athlete.wearables.add(WearableSample(
         date: athlete.currentDay,
-        source: 'test-source',
+        source: healthSource,
         mode: 'LIVE',
         hrv: 62));
     await showToday();
@@ -50,7 +53,7 @@ void main() {
 
     athlete.wearables.add(WearableSample(
         date: athlete.currentDay,
-        source: 'test-source',
+        source: healthSource,
         mode: 'LIVE',
         sleepMinutes: 425));
     await showToday();

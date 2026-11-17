@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart' hide Text;
 import '../app_text.dart';
 import '../../app/boxer_controller.dart';
+import '../../domain/athlete_data.dart';
+import '../../domain/health_source.dart';
 import '../../domain/recovery_engine.dart';
 import '../../domain/head_safety_tracker.dart';
 import '../components.dart';
@@ -23,9 +25,20 @@ class TodayScreen extends StatelessWidget {
         ? sleepBaseline.count
         : hrvBaseline.count;
     final wearable = data.latestWearable;
-    final sleep = data.latestSleepSample;
-    final hrv = data.latestMetricSample((sample) => sample.hrv);
-    final restingHr = data.latestMetricSample((sample) => sample.restingHr);
+    final sleep =
+        data.latestVisibleHealthMetric((sample) => sample.sleepMinutes);
+    final hrv = data.latestVisibleHealthMetric((sample) => sample.hrv);
+    final restingHr =
+        data.latestVisibleHealthMetric((sample) => sample.restingHr);
+    String sourceCaption(WearableSample? sample) {
+      if (sample == null) return '';
+      final source = HealthSource.label(sample.source,
+          name: sample.sourceName, id: sample.sourceId);
+      return sample.source == data.activeHealthSource
+          ? source
+          : '$source · not in recovery score';
+    }
+
     final sleepMinutes = sleep?.sleepMinutes;
     final hrvValue = hrv?.hrv;
     final restingHrValue = restingHr?.restingHr;
@@ -171,12 +184,19 @@ class TodayScreen extends StatelessWidget {
                             fontWeight: FontWeight.w700)),
                     Text('${sleepMinutes ~/ 60} h ${sleepMinutes % 60} min',
                         style: const TextStyle(
-                            fontSize: 19, fontWeight: FontWeight.w800))
+                            fontSize: 19, fontWeight: FontWeight.w800)),
+                    Text(sourceCaption(sleep),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10, color: AppColors.muted))
                   ])),
               Text(
-                  result.domains['sleep']!.status == 'INSUFFICIENT_DATA'
-                      ? 'Learning baseline'
-                      : 'Auto loaded',
+                  sleep!.source != data.activeHealthSource
+                      ? 'View only'
+                      : result.domains['sleep']!.status == 'INSUFFICIENT_DATA'
+                          ? 'Learning baseline'
+                          : 'Auto loaded',
                   style: const TextStyle(fontSize: 10, color: AppColors.muted))
             ])),
       ],
@@ -186,13 +206,13 @@ class TodayScreen extends StatelessWidget {
           if (hasHrv)
             Expanded(
                 child: MetricTile('Last HRV', hrvValue.round().toString(),
-                    unit: ' ms')),
+                    unit: ' ms', caption: sourceCaption(hrv))),
           if (hasHrv && hasRestingHr) const SizedBox(width: 8),
           if (hasRestingHr)
             Expanded(
                 child: MetricTile(
                     'Resting HR', restingHrValue.round().toString(),
-                    unit: ' bpm'))
+                    unit: ' bpm', caption: sourceCaption(restingHr)))
         ]),
       ],
       const SizedBox(height: 10),

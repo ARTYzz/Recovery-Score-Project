@@ -473,6 +473,30 @@ class AthleteData {
     return null;
   }
 
+  /// For informational cards only. Assessment and trends continue to use
+  /// [activeHealthSource] so baselines never mix measurement sources.
+  WearableSample? latestVisibleHealthMetric(
+      num? Function(WearableSample) read) {
+    WearableSample? best;
+    for (final sample in wearables) {
+      final value = read(sample);
+      if (sample.mode != 'LIVE' ||
+          !HealthSource.isImported(sample.source) ||
+          value == null ||
+          value <= 0) {
+        continue;
+      }
+      if (best == null ||
+          sample.date.compareTo(best.date) > 0 ||
+          (sample.date == best.date &&
+              sample.source == activeHealthSource &&
+              best.source != activeHealthSource)) {
+        best = sample;
+      }
+    }
+    return best;
+  }
+
   WearableSample? get latestSleepSample =>
       latestMetricSample((sample) => sample.sleepMinutes);
   MorningCheckIn? get latestCheckIn => checkins.isEmpty ? null : checkins.last;
