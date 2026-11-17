@@ -14,6 +14,7 @@ class AppleHealthSource {
     HealthDataType.SLEEP_LIGHT,
     HealthDataType.SLEEP_DEEP,
     HealthDataType.SLEEP_REM,
+    HealthDataType.SLEEP_IN_BED,
     HealthDataType.HEART_RATE_VARIABILITY_SDNN,
     HealthDataType.RESTING_HEART_RATE,
     HealthDataType.HEART_RATE,
@@ -53,14 +54,26 @@ class AppleHealthSource {
 
   Future<List<WearableSample>> _read(Health health) async {
     final now = DateTime.now();
-    final points = await health.getHealthDataFromTypes(
-        types: types,
-        startTime: now.subtract(const Duration(days: 14)),
-        endTime: now);
-    // The plugin's iOS manual-entry filter adds a HealthKit metadata predicate
-    // before returning samples. Some third-party writers omit that metadata,
-    // so read first and reject genuinely manual points in the normalizer.
-    lastReadSummary = HealthReadSummary.fromPoints(points, checkedAt: now);
+    final points = <HealthDataPoint>[];
+    final failedTypes = <HealthDataType>[];
+    for (final type in types) {
+      try {
+        points.addAll(await health.getHealthDataFromTypes(
+            types: [type],
+            startTime: now.subtract(const Duration(days: 14)),
+            endTime: now));
+      } catch (_) {
+        // One unavailable category must not suppress readable categories.
+        // Do not log platform errors; they may contain private health details.
+        failedTypes.add(type);
+      }
+    }
+    lastReadSummary = HealthReadSummary.fromPoints(points,
+        checkedAt: now, failedTypes: failedTypes);
+    if (failedTypes.length == types.length) {
+      throw const FormatException(
+          'Apple Health could not read any requested category. Check read access and try again.');
+    }
     return AppleHealthNormalizer.normalize(points);
   }
 }
@@ -76,6 +89,12 @@ class HealthReadSummary {
     required this.returnedRecords,
     required this.manualRecords,
     required this.unidentifiedRecords,
+    required this.recordsByType,
+    required this.failedTypes,
+    required this.sleepDays,
+    required this.hrvDays,
+    required this.restingHrDays,
+    required this.heartRateDays,
   });
 
   final DateTime checkedAt;
@@ -85,18 +104,28 @@ class HealthReadSummary {
   final int returnedRecords;
   final int manualRecords;
   final int unidentifiedRecords;
+  final Map<HealthDataType, int> recordsByType;
+  final List<HealthDataType> failedTypes;
+  final int sleepDays;
+  final int hrvDays;
+  final int restingHrDays;
+  final int heartRateDays;
+  int get inBedRecords => recordsByType[HealthDataType.SLEEP_IN_BED] ?? 0;
   int get importedRecords =>
       recordsBySource.values.fold(0, (sum, count) => sum + count);
   int countFor(String source) => recordsBySource[source] ?? 0;
 
   factory HealthReadSummary.fromPoints(List<HealthDataPoint> points,
-      {required DateTime checkedAt}) {
+      {required DateTime checkedAt,
+      List<HealthDataType> failedTypes = const []}) {
     final records = <String, int>{};
     final hrv = <String, int>{};
+    final byType = <HealthDataType, int>{};
     var otherHrv = 0;
     var manual = 0;
     var unidentified = 0;
     for (final point in points) {
+      byType.update(point.type, (count) => count + 1, ifAbsent: () => 1);
       if (point.recordingMethod == RecordingMethod.manual) {
         manual++;
         continue;
@@ -118,6 +147,7 @@ class HealthReadSummary {
         otherHrv++;
       }
     }
+    final usable = AppleHealthNormalizer.normalize(points);
     return HealthReadSummary(
         checkedAt: checkedAt,
         recordsBySource: records,
@@ -125,7 +155,16 @@ class HealthReadSummary {
         otherHrvRecords: otherHrv,
         returnedRecords: points.length,
         manualRecords: manual,
-        unidentifiedRecords: unidentified);
+        unidentifiedRecords: unidentified,
+        recordsByType: byType,
+        failedTypes: failedTypes,
+        sleepDays:
+            usable.where((sample) => (sample.sleepMinutes ?? 0) > 0).length,
+        hrvDays: usable.where((sample) => (sample.hrv ?? 0) > 0).length,
+        restingHrDays:
+            usable.where((sample) => (sample.restingHr ?? 0) > 0).length,
+        heartRateDays:
+            usable.where((sample) => (sample.heartRate ?? 0) > 0).length);
   }
 
   String emptyImportMessage() {
@@ -165,6 +204,8 @@ class AppleHealthNormalizer {
     for (final point in points) {
       final source = sourceFor(point);
       if (source == null) continue;
+      // In-bed intervals are diagnostic only; they are not asleep time.
+      if (point.type == HealthDataType.SLEEP_IN_BED) continue;
       final isSleep = const {
         HealthDataType.SLEEP_ASLEEP,
         HealthDataType.SLEEP_LIGHT,

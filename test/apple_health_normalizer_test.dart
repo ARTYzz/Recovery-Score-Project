@@ -65,6 +65,27 @@ void main() {
         isEmpty);
   });
 
+  test('time in bed is reported but not counted as sleep', () {
+    final inBed = point(HealthDataType.SLEEP_IN_BED, '2026-10-26T23:00:00',
+        '2026-10-27T07:00:00',
+        value: 0);
+    final summary = HealthReadSummary.fromPoints([inBed],
+        checkedAt: DateTime.parse('2026-10-27T08:00:00'));
+    expect(summary.inBedRecords, 1);
+    expect(summary.sleepDays, 0);
+    expect(AppleHealthNormalizer.normalize([inBed]), isEmpty);
+  });
+
+  test('read summary distinguishes heart rate from resting heart rate', () {
+    final heart = point(
+        HealthDataType.HEART_RATE, '2026-10-27T07:00:00', '2026-10-27T07:00:01',
+        value: 65);
+    final summary = HealthReadSummary.fromPoints([heart],
+        checkedAt: DateTime.parse('2026-10-27T08:00:00'));
+    expect(summary.heartRateDays, 1);
+    expect(summary.restingHrDays, 0);
+  });
+
   test('empty HealthKit read reports no returned records, not missing sources',
       () {
     final summary = HealthReadSummary.fromPoints([], checkedAt: DateTime.now());

@@ -33,6 +33,16 @@ void main() {
         date: athlete.currentDay,
         source: healthSource,
         mode: 'LIVE',
+        heartRate: 72));
+    await showToday();
+    expect(find.text('Last HR'), findsOneWidget);
+    expect(find.text('Resting HR'), findsNothing);
+    athlete.wearables.clear();
+
+    athlete.wearables.add(WearableSample(
+        date: athlete.currentDay,
+        source: healthSource,
+        mode: 'LIVE',
         restingHr: 51));
     await showToday();
     expect(find.text('Resting HR'), findsOneWidget);
@@ -41,10 +51,7 @@ void main() {
     expect(find.text('Last HRV'), findsNothing);
 
     athlete.wearables.add(WearableSample(
-        date: athlete.currentDay,
-        source: healthSource,
-        mode: 'LIVE',
-        hrv: 62));
+        date: athlete.currentDay, source: healthSource, mode: 'LIVE', hrv: 62));
     await showToday();
     expect(find.text('Last sleep'), findsNothing);
     expect(find.text('Last HRV'), findsOneWidget);

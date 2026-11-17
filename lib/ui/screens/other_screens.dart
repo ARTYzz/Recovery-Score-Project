@@ -551,6 +551,8 @@ class ConnectionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = controller.data!;
+    final lastHealthRead = controller.appleHealth.lastReadSummary;
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
     final imported = data.wearables
         .where((sample) => HealthSource.isImported(sample.source))
         .toList();
@@ -600,15 +602,35 @@ class ConnectionsScreen extends StatelessWidget {
                     '${imported.where((sample) => sample.source == source).length} day(s) imported · ${controller.appleHealth.lastReadSummary?.countFor(source) ?? 0} record(s) in last read\nSource ID: ${imported.lastWhere((sample) => sample.source == source).sourceId ?? 'Not provided'}'),
                 onTap: () => controller.selectHealthSource(source)),
         ],
-        if (controller.appleHealth.lastReadSummary != null) ...[
+        if (lastHealthRead != null) ...[
           const SizedBox(height: 8),
-          if (controller.appleHealth.lastReadSummary!.importedRecords == 0)
+          Text(
+              'Last HealthKit read ${twoDigits(lastHealthRead.checkedAt.day)}/${twoDigits(lastHealthRead.checkedAt.month)} ${twoDigits(lastHealthRead.checkedAt.hour)}:${twoDigits(lastHealthRead.checkedAt.minute)} · ${lastHealthRead.returnedRecords} records in 14 days',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+              'Readable source-days: Sleep ${lastHealthRead.sleepDays} · HRV ${lastHealthRead.hrvDays} · Resting HR ${lastHealthRead.restingHrDays} · Heart Rate ${lastHealthRead.heartRateDays}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          if (lastHealthRead.sleepDays == 0 &&
+              lastHealthRead.hrvDays == 0 &&
+              lastHealthRead.restingHrDays == 0 &&
+              lastHealthRead.heartRateDays == 0)
+            const Text(
+                'This read has no values for the Today health cards. Check the corresponding categories in Apple Health and their Data Sources & Access.',
+                style: TextStyle(color: AppColors.amber, fontSize: 12)),
+          if (lastHealthRead.sleepDays == 0 && lastHealthRead.inBedRecords > 0)
+            const Text(
+                'HealthKit returned time in bed, but no asleep-time samples. Time in bed is not shown as sleep.',
+                style: TextStyle(color: AppColors.amber, fontSize: 12)),
+          if (lastHealthRead.failedTypes.isNotEmpty)
+            Text(
+                'Some HealthKit categories could not be read: ${lastHealthRead.failedTypes.map((type) => type.name).join(', ')}',
+                style: const TextStyle(color: AppColors.amber, fontSize: 12)),
+          if (lastHealthRead.importedRecords == 0)
             const Text(
                 'Last sync returned no records with an identifiable source. Saved history is unchanged; check Apple Health data and read access.',
                 style: TextStyle(color: AppColors.amber, fontSize: 12)),
-          Text(
-              controller.appleHealth.lastReadSummary!
-                  .hrvExplanation(data.activeHealthSource),
+          Text(lastHealthRead.hrvExplanation(data.activeHealthSource),
               style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
         const SizedBox(height: 8),

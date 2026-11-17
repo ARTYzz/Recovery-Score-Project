@@ -30,11 +30,13 @@ class TodayScreen extends StatelessWidget {
     final hrv = data.latestVisibleHealthMetric((sample) => sample.hrv);
     final restingHr =
         data.latestVisibleHealthMetric((sample) => sample.restingHr);
-    String sourceCaption(WearableSample? sample) {
+    final heartRate =
+        data.latestVisibleHealthMetric((sample) => sample.heartRate);
+    String sourceCaption(WearableSample? sample, {bool usedForScore = true}) {
       if (sample == null) return '';
       final source = HealthSource.label(sample.source,
           name: sample.sourceName, id: sample.sourceId);
-      return sample.source == data.activeHealthSource
+      return usedForScore && sample.source == data.activeHealthSource
           ? source
           : '$source · not in recovery score';
     }
@@ -42,9 +44,12 @@ class TodayScreen extends StatelessWidget {
     final sleepMinutes = sleep?.sleepMinutes;
     final hrvValue = hrv?.hrv;
     final restingHrValue = restingHr?.restingHr;
+    final heartRateValue = heartRate?.heartRate;
     final hasSleep = sleepMinutes != null && sleepMinutes > 0;
     final hasHrv = hrvValue != null && hrvValue > 0;
     final hasRestingHr = restingHrValue != null && restingHrValue > 0;
+    final hasHeartRate =
+        !hasRestingHr && heartRateValue != null && heartRateValue > 0;
     final fightCampConnection = data.connections['fightcamp'];
     final actionDoneToday =
         data.actions.any((action) => action.date == data.currentDay);
@@ -200,19 +205,25 @@ class TodayScreen extends StatelessWidget {
                   style: const TextStyle(fontSize: 10, color: AppColors.muted))
             ])),
       ],
-      if (hasHrv || hasRestingHr) ...[
+      if (hasHrv || hasRestingHr || hasHeartRate) ...[
         const SizedBox(height: 8),
         Row(children: [
           if (hasHrv)
             Expanded(
                 child: MetricTile('Last HRV', hrvValue.round().toString(),
                     unit: ' ms', caption: sourceCaption(hrv))),
-          if (hasHrv && hasRestingHr) const SizedBox(width: 8),
+          if (hasHrv && (hasRestingHr || hasHeartRate))
+            const SizedBox(width: 8),
           if (hasRestingHr)
             Expanded(
                 child: MetricTile(
                     'Resting HR', restingHrValue.round().toString(),
-                    unit: ' bpm', caption: sourceCaption(restingHr)))
+                    unit: ' bpm', caption: sourceCaption(restingHr))),
+          if (hasHeartRate)
+            Expanded(
+                child: MetricTile('Last HR', heartRateValue.round().toString(),
+                    unit: ' bpm',
+                    caption: sourceCaption(heartRate, usedForScore: false)))
         ]),
       ],
       const SizedBox(height: 10),
