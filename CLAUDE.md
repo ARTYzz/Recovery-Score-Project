@@ -27,7 +27,7 @@ flutter run -d chrome
 
 ## How the team uses AI
 
-From members' AI disclosures ([.docs/04-Deliver/](.docs/04-Deliver/) role statements). _TO FILL: rows for members whose role statements are not in yet._
+From members' AI disclosures ([.docs/final/role-statements/](.docs/final/role-statements/) role statements). _TO FILL: rows for members whose role statements are not in yet._
 
 | Tool | Used for | Who | How output was checked |
 |---|---|---|---|

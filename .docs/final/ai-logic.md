@@ -59,9 +59,9 @@ From members' AI disclosures in their role statements:
 
 | Tool | Used for | Source |
 |---|---|---|
-| Google Gemini | Requirement analysis; writing prompts for Stitch AI | [6631503024-Theerawut.md](../04-Deliver/6631503024-Theerawut.md) |
-| Stitch AI (Google) | Initial UI prototype screens | [6631503024-Theerawut.md](../04-Deliver/6631503024-Theerawut.md) |
-| Google Gemini | SUS/TAM calculation, Markdown tables, editing tone | [6631503127-Hassakorn.md](../04-Deliver/6631503127-Hassakorn.md) |
+| Google Gemini | Requirement analysis; writing prompts for Stitch AI | [6631503024-Theerawut.md](role-statements/6631503024-Theerawut.md) |
+| Stitch AI (Google) | Initial UI prototype screens | [6631503024-Theerawut.md](role-statements/6631503024-Theerawut.md) |
+| Google Gemini | SUS/TAM calculation, Markdown tables, editing tone | [6631503127-Hassakorn.md](role-statements/6631503127-Hassakorn.md) |
 | Claude Code | Test documentation (no-real-user test, session log formatting, SUS recalculation, issue log, heuristic review draft), this document | this repository's test documents |
 
 _TO FILL: AI use by the other members (from their role statements)._ Rules the team follows when using AI are in [CLAUDE.md](../../CLAUDE.md).
