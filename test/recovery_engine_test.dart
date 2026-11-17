@@ -3,6 +3,7 @@ import 'package:boxer_recovery/data/fightcamp_demo_source.dart';
 import 'package:boxer_recovery/domain/athlete_data.dart';
 import 'package:boxer_recovery/domain/recovery_engine.dart';
 import 'package:boxer_recovery/domain/head_safety_tracker.dart';
+import 'package:boxer_recovery/domain/urine_colour.dart';
 
 /// Explicit test fixture; no synthetic wearable source is shipped in the app.
 AthleteData seededAthlete() {
@@ -32,6 +33,43 @@ AthleteData seededAthlete() {
 }
 
 void main() {
+  test('new urine colours do not inherit old hydration severity numbers', () {
+    expect(UrineColour.fuelScore(UrineColour.yellow.code), 100);
+    expect(UrineColour.fuelScore(UrineColour.red.code), isNull);
+    expect(UrineColour.fuelScore(UrineColour.purple.code), isNull);
+    expect(UrineColour.fuelScore(4), 55);
+    expect(UrineColour.isLegacyDark(UrineColour.orange.code), isFalse);
+    final check = MorningCheckIn(
+        date: localDay(), urine: UrineColour.tealGreen.code, mood: 'OK');
+    expect(MorningCheckIn.fromJson(check.toJson()).urine,
+        UrineColour.tealGreen.code);
+  });
+
+  test('red appearance prompts safety review without a dehydration claim', () {
+    final athlete = AthleteData();
+    athlete.saveMorning(MorningCheckIn(
+        date: localDay(), urine: UrineColour.red.code, mood: 'OK'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(
+        result.safety.map((flag) => flag.code), contains('URINE_APPEARANCE'));
+    expect(
+        result.safety.map((flag) => flag.code), isNot(contains('HYDRATION')));
+    expect(result.domains['fuel']!.status, 'RESTRICTED');
+    expect(result.trainingGuidance['Sparring']!.reason,
+        contains('unusual urine colour'));
+  });
+
+  test('purple appearance is observed without a hydration diagnosis', () {
+    final athlete = AthleteData();
+    athlete.saveMorning(MorningCheckIn(
+        date: localDay(), urine: UrineColour.purple.code, mood: 'OK'));
+    final result = RecoveryEngine().assess(athlete);
+    expect(result.safety, isEmpty);
+    expect(result.domains['fuel']!.score, isNull);
+    expect(result.domains['fuel']!.reasons,
+        contains('Unusual urine colour reported'));
+  });
+
   test('missing wearable data stays unavailable and does not become zero', () {
     final athlete = AthleteData(
         profile: AthleteProfile(

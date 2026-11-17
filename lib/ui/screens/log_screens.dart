@@ -7,8 +7,10 @@ import '../../app/boxer_controller.dart';
 import '../../domain/athlete_data.dart';
 import '../../domain/food_journal.dart';
 import '../../domain/head_safety_tracker.dart';
+import '../../domain/urine_colour.dart';
 import '../components.dart';
 import '../design.dart';
+import '../urine_colour_picker.dart';
 
 class MorningScreen extends StatefulWidget {
   const MorningScreen(this.controller, {super.key});
@@ -19,13 +21,18 @@ class MorningScreen extends StatefulWidget {
 
 class _MorningScreenState extends State<MorningScreen> {
   double? weight;
-  int urine = 2;
+  int urine = UrineColour.yellow.code;
   String mood = 'OK';
   bool symptoms = false;
   @override
   void initState() {
     super.initState();
     weight = widget.controller.data?.latestCheckIn?.weight;
+    final previous = widget.controller.data?.latestCheckIn;
+    if (previous?.date == widget.controller.data?.currentDay &&
+        UrineColour.fromCode(previous!.urine) != null) {
+      urine = previous.urine;
+    }
   }
 
   Future<void> _chooseWeight() async {
@@ -144,32 +151,8 @@ class _MorningScreenState extends State<MorningScreen> {
             icon: const Icon(Icons.add_circle_outline))
       ])),
       const SizedBox(height: 24),
-      const FieldTitle('Urine colour'),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        for (var i = 1; i <= 5; i++)
-          InkWell(
-            onTap: () => setState(() => urine = i),
-            child: Container(
-              width: 49,
-              height: 49,
-              decoration: BoxDecoration(
-                  color: [
-                    const Color(0xfffff3a0),
-                    const Color(0xfff6d95d),
-                    const Color(0xffe9bb42),
-                    const Color(0xffce9631),
-                    const Color(0xffab702c)
-                  ][i - 1],
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                      color: urine == i ? AppColors.ink : Colors.white,
-                      width: urine == i ? 3 : 1)),
-              child: Center(
-                  child: Text('$i',
-                      style: const TextStyle(fontWeight: FontWeight.w800))),
-            ),
-          ),
-      ]),
+      UrineColourPicker(
+          value: urine, onChanged: (code) => setState(() => urine = code)),
       const SizedBox(height: 24),
       const FieldTitle('How do you feel?'),
       ChoiceGroup(

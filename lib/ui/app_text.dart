@@ -140,6 +140,33 @@ class AppCopy {
     'Morning weight (kg)': 'น้ำหนักตอนเช้า (กก.)',
     'Use this weight': 'ใช้น้ำหนักนี้',
     'Urine colour': 'สีปัสสาวะ',
+    'Urine colour guide': 'ความหมายของสีปัสสาวะ',
+    'What do the urine colours mean?': 'สีปัสสาวะแต่ละสีหมายถึงอะไร?',
+    'Selected colour: ': 'สีที่เลือก: ',
+    'Close': 'ปิด',
+    'Yellow': 'สีเหลือง',
+    'Red': 'สีแดง',
+    'Purple': 'สีม่วง',
+    'Brown': 'สีน้ำตาล',
+    'Cloudy grey': 'สีเทาขุ่น',
+    'Orange': 'สีส้ม',
+    'Teal / green': 'สีฟ้าหรือสีเขียว',
+    'Usually within the normal range. A deeper yellow may mean you need more fluids.':
+        'โดยทั่วไปอยู่ในช่วงปกติ หากเหลืองเข้มขึ้นอาจต้องใส่ใจการดื่มน้ำ',
+    'Food or medicines can change urine red, but it may also be blood. If blood is possible, seek medical advice promptly.':
+        'อาหารหรือยาอาจทำให้ปัสสาวะเป็นสีแดง แต่ก็อาจเป็นเลือดได้ หากสงสัยว่าเป็นเลือด ควรปรึกษาแพทย์โดยเร็ว',
+    'Uncommon. It can occur with a urinary catheter or other factors. Seek advice if unexplained or persistent.':
+        'พบไม่บ่อย อาจเกิดร่วมกับการใช้สายสวนปัสสาวะหรือปัจจัยอื่น หากอธิบายสาเหตุไม่ได้หรือเป็นต่อเนื่อง ควรปรึกษาบุคลากรทางการแพทย์',
+    'Food, medicines, or concentrated urine can appear brown. Dark brown or possible blood should be checked promptly.':
+        'อาหาร ยา หรือปัสสาวะที่เข้มข้นอาจทำให้เป็นสีน้ำตาล หากเป็นน้ำตาลเข้มหรือสงสัยว่ามีเลือด ควรเข้ารับการตรวจโดยเร็ว',
+    'Cloudy or milky urine can have several causes. Seek advice if it persists or comes with other symptoms.':
+        'ปัสสาวะขุ่นหรือคล้ายน้ำนมเกิดได้จากหลายสาเหตุ หากเป็นต่อเนื่องหรือมีอาการอื่นร่วมด้วย ควรปรึกษาบุคลากรทางการแพทย์',
+    'Vitamins, food, medicines, or concentrated urine can look orange. Seek advice if unexplained or persistent.':
+        'วิตามิน อาหาร ยา หรือปัสสาวะที่เข้มข้นอาจทำให้เป็นสีส้ม หากอธิบายสาเหตุไม่ได้หรือเป็นต่อเนื่อง ควรปรึกษาบุคลากรทางการแพทย์',
+    'Food dyes or medicines can change urine blue-green. Seek advice if unexplained or persistent.':
+        'สีผสมอาหารหรือยาอาจทำให้ปัสสาวะเป็นสีฟ้าหรือเขียว หากอธิบายสาเหตุไม่ได้หรือเป็นต่อเนื่อง ควรปรึกษาบุคลากรทางการแพทย์',
+    'Colour alone cannot diagnose dehydration, infection, or another condition.':
+        'สีเพียงอย่างเดียวไม่สามารถวินิจฉัยภาวะขาดน้ำ การติดเชื้อ หรือภาวะอื่นได้',
     'How do you feel?': 'วันนี้รู้สึกอย่างไร?',
     'New symptoms after head contact?': 'มีอาการใหม่หลังศีรษะถูกกระแทกหรือไม่?',
     'Check-in': 'เช็กอิน',
@@ -262,6 +289,11 @@ class AppCopy {
     'Sleep below your baseline': 'นอนน้อยกว่าค่าพื้นฐานของคุณ',
     'Urine colour suggests hydration attention':
         'สีปัสสาวะบ่งชี้ว่าควรใส่ใจเรื่องน้ำ',
+    'Unusual urine colour reported': 'มีรายงานสีปัสสาวะผิดจากปกติ',
+    'Red or brown urine can have several causes. If blood is possible, seek prompt medical advice; the app cannot identify the cause.':
+        'ปัสสาวะสีแดงหรือน้ำตาลเกิดได้จากหลายสาเหตุ หากสงสัยว่าอาจมีเลือด ควรปรึกษาแพทย์โดยเร็ว แอพไม่สามารถระบุสาเหตุได้',
+    'An unusual urine colour was reported. Consider qualified medical advice before intense training.':
+        'มีรายงานสีปัสสาวะผิดจากปกติ ควรพิจารณาปรึกษาบุคลากรทางการแพทย์ก่อนซ้อมหนัก',
     'Post-training meal missed': 'ยังไม่ได้กินอาหารหลังซ้อม',
     'Protein plan incomplete': 'ยังได้รับโปรตีนไม่ครบตามแผน',
     'Long hard conditioning increases refuelling attention':

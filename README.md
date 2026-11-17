@@ -16,6 +16,8 @@ Create Profile asks for current weight (kg), height (cm), and an optional target
 
 The next fight date is optional. When the scheduled day has passed, the app archives that planned date and weigh-in target, clears the upcoming fight and target, and continues recovery tracking without a camp countdown. The rollover is persisted when the athlete unlocks, returns to the app, or navigates after midnight. A new date can be set later in Settings → Edit Profile.
 
+Morning Check-in offers seven labelled urine appearances (yellow, red, purple, brown, cloudy grey, orange, and teal/green) with an in-app colour guide. Older check-ins using the previous five yellow-shade codes remain readable. Unusual hues are not converted into a dehydration score; possible blood-like red or brown reports trigger a non-diagnostic Safety Gate warning.
+
 Settings → Language switches the mobile interface between English and Thai immediately. The choice is stored on the device and also applies to the setup and unlock screens after restarting the app. Health records and source values are unchanged by a language switch.
 
 On Windows, run from the project root:

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'athlete_data.dart';
 import 'head_safety_tracker.dart';
+import 'urine_colour.dart';
 
 const domainKeys = ['brain', 'fuel', 'sleep', 'power', 'body', 'mind'];
 const domainLabels = {
@@ -182,9 +183,15 @@ class SafetyGate {
       flags.add(const SafetyFlag('PHYSICAL', 'body',
           'Severe pain reported. Avoid loading the affected area and seek appropriate professional assessment.'));
     }
-    if ((check?.urine ?? 0) >= 4) {
+    if (check != null && UrineColour.isLegacyDark(check.urine)) {
       flags.add(const SafetyFlag('HYDRATION', 'fuel',
           'A dark urine-colour report may signal a hydration concern. Prioritize hydration awareness and professional support if symptoms persist.'));
+    }
+    final urineAppearance =
+        check == null ? null : UrineColour.fromCode(check.urine);
+    if (urineAppearance?.mayLookLikeBlood == true) {
+      flags.add(const SafetyFlag('URINE_APPEARANCE', 'fuel',
+          'Red or brown urine can have several causes. If blood is possible, seek prompt medical advice; the app cannot identify the cause.'));
     }
     if (data.checkins.length >= 2) {
       final current = data.checkins[data.checkins.length - 1];
@@ -280,15 +287,8 @@ class DomainScorer {
             : null;
         final parts = <(double, double)>[];
         if (check != null) {
-          parts.add((
-            switch (check.urine) {
-              <= 2 => 100.0,
-              3 => 85.0,
-              4 => 55.0,
-              _ => 20.0,
-            },
-            0.5
-          ));
+          final urineScore = UrineColour.fuelScore(check.urine);
+          if (urineScore != null) parts.add((urineScore, 0.5));
           final prior = data.checkins
               .where((e) =>
                   e.date.compareTo(data.currentDay) < 0 && e.weight != null)
@@ -508,8 +508,12 @@ class TrainingAdvisor {
         flag.code == 'HEAD_FOLLOWUP');
     final headPlan = HeadSafetyTracker(data).hasExternalPlan;
     final headLoad = safety.any((flag) => flag.code == 'HEAD_LOAD');
+    final appearanceConcern =
+        safety.any((flag) => flag.code == 'URINE_APPEARANCE');
     final hydrationConcern = safety.any(
         (flag) => flag.code == 'HYDRATION' || flag.code == 'WEIGHT_CHANGE');
+    const appearanceAdvice =
+        'An unusual urine colour was reported. Consider qualified medical advice before intense training.';
     final fuelRestricted = domains['fuel']?.status == 'RESTRICTED';
     final powerRestricted = domains['power']?.status == 'RESTRICTED';
     final severePhysical = safety.any((flag) => flag.code == 'PHYSICAL');
@@ -557,9 +561,11 @@ class TrainingAdvisor {
                   ? 'Fight-week plan favours avoiding sparring.'
                   : powerRestricted
                       ? 'Punch output is below your personal FightCamp baseline.'
-                      : fuelRestricted
-                          ? 'Fuel signals need attention before high-intensity contact.'
-                          : domains['brain']!.reasons.join(' · '),
+                      : appearanceConcern
+                          ? appearanceAdvice
+                          : fuelRestricted
+                              ? 'Fuel signals need attention before high-intensity contact.'
+                              : domains['brain']!.reasons.join(' · '),
           avoidLabel: 'Sparring');
     } else if (headPlan) {
       advice['Sparring'] = const TrainingAdvice(
@@ -573,15 +579,18 @@ class TrainingAdvisor {
           avoidLabel: 'Sparring with upper-body pain');
     } else if (domains['brain']!.status == 'CAUTION' ||
         domains['sleep']!.status == 'RESTRICTED' ||
-        hydrationConcern) {
+        hydrationConcern ||
+        appearanceConcern) {
       advice['Sparring'] = TrainingAdvice(
           'MODIFIED',
           'Avoid hard contact',
           domains['brain']!.status == 'CAUTION'
               ? domains['brain']!.reasons.join(' · ')
-              : hydrationConcern
-                  ? 'Hydration or weight trend needs attention before intense work.'
-                  : 'Sleep and heart signals need recovery before intense work.',
+              : appearanceConcern
+                  ? appearanceAdvice
+                  : hydrationConcern
+                      ? 'Hydration or weight trend needs attention before intense work.'
+                      : 'Sleep and heart signals need recovery before intense work.',
           avoidLabel: 'Hard sparring');
     } else {
       advice['Sparring'] = enoughData && domains['brain']!.status == 'READY'
@@ -606,6 +615,7 @@ class TrainingAdvisor {
           avoidLabel: 'Unplanned head-contact drills');
     } else if (headLoad ||
         hydrationConcern ||
+        appearanceConcern ||
         fuelRestricted ||
         powerRestricted ||
         (hardTechnical && longTechnical) ||
@@ -617,11 +627,13 @@ class TrainingAdvisor {
               ? 'Keep drills strictly no-contact after repeated head contact.'
               : powerRestricted
                   ? 'Punch output is below your personal baseline; keep technique slow and no-contact.'
-                  : hydrationConcern || fuelRestricted
-                      ? 'Hydration or weight trend needs attention before hard technical work.'
-                      : hardTechnical && longTechnical
-                          ? 'A long hard technical session was logged recently.'
-                          : domains['body']!.reasons.join(' · '),
+                  : appearanceConcern
+                      ? appearanceAdvice
+                      : hydrationConcern || fuelRestricted
+                          ? 'Hydration or weight trend needs attention before hard technical work.'
+                          : hardTechnical && longTechnical
+                              ? 'A long hard technical session was logged recently.'
+                              : domains['body']!.reasons.join(' · '),
           allowedLabel: 'Light no-contact technique',
           avoidLabel: 'Hard pads or bag work');
     } else {
@@ -641,6 +653,7 @@ class TrainingAdvisor {
     } else if ((hardConditioning && longConditioning) ||
         domains['sleep']!.status == 'RESTRICTED' ||
         hydrationConcern ||
+        appearanceConcern ||
         fuelRestricted ||
         (lowerPain && longConditioning)) {
       advice['Conditioning'] = TrainingAdvice(
@@ -648,11 +661,13 @@ class TrainingAdvisor {
           'Easy aerobic work only',
           hardConditioning && longConditioning
               ? 'A long hard conditioning session was logged recently; skip another interval session.'
-              : hydrationConcern || fuelRestricted
-                  ? 'Hydration or weight trend needs attention before hard conditioning.'
-                  : lowerPain
-                      ? 'Leg or back soreness was reported after a long session.'
-                      : 'Sleep and heart signals call for reduced intensity.',
+              : appearanceConcern
+                  ? appearanceAdvice
+                  : hydrationConcern || fuelRestricted
+                      ? 'Hydration or weight trend needs attention before hard conditioning.'
+                      : lowerPain
+                          ? 'Leg or back soreness was reported after a long session.'
+                          : 'Sleep and heart signals call for reduced intensity.',
           allowedLabel: 'Easy conditioning',
           avoidLabel: 'Hard conditioning');
     } else {
@@ -674,6 +689,7 @@ class TrainingAdvisor {
         upperPain ||
         lowerPain ||
         hydrationConcern ||
+        appearanceConcern ||
         fuelRestricted ||
         domains['sleep']!.status == 'RESTRICTED') {
       advice['Strength'] = TrainingAdvice(
@@ -681,11 +697,13 @@ class TrainingAdvisor {
           'Skip heavy lifting today',
           upperPain || lowerPain
               ? 'Soreness was reported; avoid loading the sore area.'
-              : hydrationConcern || fuelRestricted
-                  ? 'Hydration or weight trend needs attention before heavy lifting.'
-                  : longStrength || hardStrength
-                      ? 'A long or hard strength session was logged recently.'
-                      : 'Sleep and heart signals call for a lighter session.',
+              : appearanceConcern
+                  ? appearanceAdvice
+                  : hydrationConcern || fuelRestricted
+                      ? 'Hydration or weight trend needs attention before heavy lifting.'
+                      : longStrength || hardStrength
+                          ? 'A long or hard strength session was logged recently.'
+                          : 'Sleep and heart signals call for a lighter session.',
           allowedLabel: 'Light strength away from sore areas',
           avoidLabel: 'Heavy strength');
     } else {
@@ -823,8 +841,11 @@ class RecoveryEngine {
 
     if (check != null || nutrition != null) {
       final reasons = <String>[];
-      if ((check?.urine ?? 0) >= 3) {
+      if (check != null && check.urine >= 3 && check.urine <= 5) {
         reasons.add('Urine colour suggests hydration attention');
+      } else if (check != null &&
+          UrineColour.fromCode(check.urine)?.isUnusual == true) {
+        reasons.add('Unusual urine colour reported');
       }
       if (nutrition?.meal == 'No') reasons.add('Post-training meal missed');
       if (nutrition?.protein == 'No') reasons.add('Protein plan incomplete');

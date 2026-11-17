@@ -5,6 +5,10 @@ on:
   push:
     paths:
       - .github/workflows/ios-sidestore-ipa.yml
+      - lib/**
+      - ios/**
+      - pubspec.yaml
+      - pubspec.lock
 
 permissions:
   contents: read
@@ -58,4 +62,4 @@ jobs:
             build/ios/sidestore/Boxer-Recovery-SideStore.ipa
             build/ios/sidestore/Boxer-Recovery-SideStore.ipa.sha256
             build/ios/healthkit-entitlements.plist
-          retention-days: 7
+          retention-days: 30
