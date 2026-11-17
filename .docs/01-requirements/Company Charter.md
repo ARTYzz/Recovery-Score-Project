@@ -73,14 +73,12 @@ A lightweight mobile decision-support engine that combines passive wearable data
 
 ## 8. Success Criteria / KPIs Metric (Before/After)
 
-| Metric | Before (Baseline / Pain Point) | After (Target Goal) |
+| Metric | Before (Baseline / Pain Point) | After (Target Success Criteria) |
 | :--- | :--- | :--- |
 | **Daily Logging Time** | 5–10+ minutes/day (high friction in standard fitness apps) | $\le$ 90 seconds/day total input time |
 | **Camp Retention Rate** | High mid-camp drop-off due to tedious data entry | $\ge$ 75% sustained daily usage through Fight Camp completion |
-| **Output Actionability** | Generic single % score requiring athlete guesswork | $\ge$ 75% sustained daily usage through Fight Camp completion |
+| **Output Actionability** | Generic single % score requiring athlete guesswork | 100% explicit Train vs. Skip daily directives |
 | **Pre-Dev User Validation** | 0 structured interviews (camp-model assumptions only) | 5–10 active boxers interviewed to validate logic & baselines |
-
-*(หมายเหตุ: ในตารางข้อ 8 ต้นฉบับมีชื่อหัวคอลัมน์ที่ 3 ซ้ำกับคอลัมน์ที่ 2 ผมได้ปรับแก้หัวคอลัมน์เป็น "After (Target Goal)" เพื่อให้สอดคล้องกับเนื้อหาครับ)*
 
 ## 9. Timeline / Milestones
 * **Phase 1 — Problem & Scope Definition:** Conducted 5-Whys Root Cause Analysis; defined 6 recovery domains, 4 training loads, and core safety boundaries.
