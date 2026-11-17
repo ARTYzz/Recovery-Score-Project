@@ -39,6 +39,9 @@ class BoxerController extends ChangeNotifier {
   String? error;
   bool busy = true;
   bool _syncingAppleHealth = false;
+  StreamSubscription<void>? _healthChanges;
+  Timer? _healthChangeDebounce;
+  bool _healthChangeDuringSync = false;
   String languageCode = 'en';
 
   Assessment? get assessment => data == null ? null : engine.assess(data!);
@@ -186,6 +189,7 @@ class BoxerController extends ChangeNotifier {
     _removeLegacySyntheticHealth(data!);
     if (data!.connections['apple'] == 'CONNECTED') {
       await syncAppleHealth();
+      _observeHealthChanges();
     }
     if (data!.onboardingStage == 'complete') {
       const MockFightCampSource().ensureDemoData(data!);
@@ -407,6 +411,7 @@ class BoxerController extends ChangeNotifier {
             athlete.activeHealthSource ?? samples.last.source;
       }
       await vault.save();
+      _observeHealthChanges();
     } catch (e) {
       showError(e);
     } finally {
@@ -416,7 +421,11 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> syncAppleHealth({bool showBusy = true}) async {
-    if (_syncingAppleHealth || data?.connections['apple'] != 'CONNECTED') {
+    if (data?.connections['apple'] != 'CONNECTED') {
+      return;
+    }
+    if (_syncingAppleHealth) {
+      _healthChangeDuringSync = true;
       return;
     }
     _syncingAppleHealth = true;
@@ -426,7 +435,10 @@ class BoxerController extends ChangeNotifier {
     }
     try {
       final samples = await appleHealth.sync();
-      final athlete = data!;
+      final athlete = data;
+      if (athlete == null || athlete.connections['apple'] != 'CONNECTED') {
+        return;
+      }
       if (samples.isEmpty) {
         error =
             '${appleHealth.lastReadSummary?.emptyImportMessage() ?? 'Apple Health did not return usable records.'} Saved history is unchanged.';
@@ -449,10 +461,42 @@ class BoxerController extends ChangeNotifier {
       _syncingAppleHealth = false;
       if (showBusy) busy = false;
       notifyListeners();
+      if (_healthChangeDuringSync) {
+        _healthChangeDuringSync = false;
+        _queueHealthSync();
+      }
     }
   }
 
+  void _observeHealthChanges() {
+    if (_healthChanges != null || !appleHealth.supported) return;
+    _healthChanges = appleHealth.changes.listen(
+      (_) => _queueHealthSync(),
+      onError: (Object _) {
+        // Resume and manual sync still work if observation is unavailable.
+      },
+    );
+  }
+
+  void _queueHealthSync() {
+    if (data?.connections['apple'] != 'CONNECTED') return;
+    _healthChangeDebounce?.cancel();
+    _healthChangeDebounce = Timer(const Duration(milliseconds: 400), () {
+      unawaited(syncAppleHealth(showBusy: false));
+    });
+  }
+
+  void _stopHealthObservation() {
+    _healthChangeDebounce?.cancel();
+    _healthChangeDebounce = null;
+    _healthChangeDuringSync = false;
+    final subscription = _healthChanges;
+    if (subscription != null) unawaited(subscription.cancel());
+    _healthChanges = null;
+  }
+
   Future<void> disconnectAppleHealth() async {
+    _stopHealthObservation();
     final athlete = data!;
     athlete.connections['apple'] = 'DISCONNECTED';
     athlete.healthAcceptedAt = null;
@@ -502,6 +546,7 @@ class BoxerController extends ChangeNotifier {
 
   Future<void> restoreNewAccount(AthleteData restored,
       [String? localPassphrase]) async {
+    _stopHealthObservation();
     _resetRestoredHealthConnection(restored);
     await _createAccount(restored, localPassphrase);
     data = restored;
@@ -509,6 +554,7 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> restoreBackup(AthleteData restored) async {
+    _stopHealthObservation();
     _resetRestoredHealthConnection(restored);
     await vault.replace(restored);
     data = restored;
@@ -516,6 +562,7 @@ class BoxerController extends ChangeNotifier {
   }
 
   void lock() {
+    _stopHealthObservation();
     vault.lock();
     data = null;
     route = 'unlock';
@@ -523,6 +570,7 @@ class BoxerController extends ChangeNotifier {
   }
 
   Future<void> deleteAccount() async {
+    _stopHealthObservation();
     await vault.delete();
     final preferences = await SharedPreferences.getInstance();
     if (preferences.getBool(deviceKeyMarker) == true) {
@@ -540,5 +588,11 @@ class BoxerController extends ChangeNotifier {
   void showError(Object message) {
     error = message is FormatException ? message.message : message.toString();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _stopHealthObservation();
+    super.dispose();
   }
 }

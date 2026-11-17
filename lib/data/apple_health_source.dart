@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:health/health.dart';
 
 import '../domain/athlete_data.dart';
@@ -20,6 +21,15 @@ class AppleHealthSource {
   ];
 
   bool get supported => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// HealthKit observer notifications contain no values. The controller reads
+  /// the usual HealthKit window after each notification.
+  Stream<void> get changes {
+    if (!supported) return const Stream<void>.empty();
+    return const EventChannel('boxer_recovery/health_changes')
+        .receiveBroadcastStream()
+        .map<void>((_) {});
+  }
 
   Future<List<WearableSample>> connect() async {
     if (!supported) {

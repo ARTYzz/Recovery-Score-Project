@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:boxer_recovery/app/boxer_controller.dart';
 import 'package:boxer_recovery/data/athlete_vault.dart';
 import 'package:boxer_recovery/data/apple_health_source.dart';
@@ -30,12 +32,20 @@ WearableSample sample(String day,
 
 class FakeHuaweiHealthSource extends AppleHealthSource {
   List<WearableSample> results = [];
+  final events = StreamController<void>.broadcast();
+  int syncCalls = 0;
 
   @override
   bool get supported => true;
 
   @override
-  Future<List<WearableSample>> sync() async => results;
+  Stream<void> get changes => events.stream;
+
+  @override
+  Future<List<WearableSample>> sync() async {
+    syncCalls++;
+    return results;
+  }
 
   @override
   Future<List<WearableSample>> connect() async => results;
@@ -145,6 +155,37 @@ void main() {
             .latestSleepSample!
             .sleepMinutes,
         425);
+  });
+
+  test('new HealthKit event syncs connected account automatically', () async {
+    SharedPreferences.setMockInitialValues({});
+    final athlete = AthleteData(onboardingStage: 'complete');
+    athlete.connections['apple'] = 'CONNECTED';
+    final vault = AthleteVault();
+    await vault.create('test-passphrase', athlete);
+    final source = FakeHuaweiHealthSource();
+    final controller = BoxerController(vault: vault, appleHealth: source);
+    await controller.initialize();
+    await controller.unlock('test-passphrase');
+    final initialReads = source.syncCalls;
+
+    source.results = [sample(localDay(), sleep: 440, rhr: 49)];
+    source.events.add(null);
+    await Future<void>.delayed(const Duration(milliseconds: 550));
+
+    expect(source.syncCalls, initialReads + 1);
+    expect(controller.data!.latestSleepSample?.sleepMinutes, 440);
+    expect(controller.data!.latestMetricSample((s) => s.restingHr)?.restingHr,
+        49);
+    expect((await AthleteVault().unlock('test-passphrase'))
+        .latestSleepSample?.sleepMinutes, 440);
+
+    await controller.disconnectAppleHealth();
+    source.events.add(null);
+    await Future<void>.delayed(const Duration(milliseconds: 550));
+    expect(source.syncCalls, initialReads + 1);
+    controller.dispose();
+    await source.events.close();
   });
 
   test('explicit disconnect still removes imported Huawei records', () async {
