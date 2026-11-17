@@ -37,7 +37,7 @@ Evidence labels: **PROXY** = people outside the team who are not boxers; **TEAM*
 | Test Plan | [Test-Plan.md](../03-Test/Test-Plan.md) |
 | No real-user test (why, PROXY, test results, heuristic review, SECONDARY, plan) | [no-real-user-test.md](../../test/no-real-user-test.md) |
 | Session logs (PROXY-01 – 08) | [session-logs.md](../03-Test/session-logs.md) |
-| Before / After for MUST tasks | [no-real-user-test.md §3](../../test/no-real-user-test.md), [comparison-table.md](comparison-table.md) |
+| Before / After for MUST tasks | [no-real-user-test.md §3](../../test/no-real-user-test.md), [comparison-table.md](../04-Deliver/comparison-table.md) |
 | SUS and acceptance survey (PROXY) | [sus-results.md](../03-Test/sus-results.md) |
 | Issue log | [issue-log.md](../03-Test/issue-log.md) |
 
@@ -47,7 +47,7 @@ Evidence labels: **PROXY** = people outside the team who are not boxers; **TEAM*
 |---|---|
 | Case study (Problem, Process, Outcome, live URL) | [case-study.md](case-study.md) |
 | AI logic (Where, How, Prove, Measure) | [ai-logic.md](ai-logic.md) |
-| Comparison table (incl. AI row) | [comparison-table.md](comparison-table.md) |
+| Comparison table (incl. AI row) | [comparison-table.md](../04-Deliver/comparison-table.md) |
 | Role statement — Theerawut Khamsuetrong (6631503024) | [6631503024-Theerawut.md](role-statements/6631503024-Theerawut.md) |
 | Role statement — Hassakorn Buaurai (6631503127) | [6631503127-Hassakorn.md](role-statements/6631503127-Hassakorn.md) |
 | Role statement — Pawornpat Kongdaeng (6531503111), Product Owner | [6531503111-Pawornpat.md](role-statements/6531503111-Pawornpat.md) |

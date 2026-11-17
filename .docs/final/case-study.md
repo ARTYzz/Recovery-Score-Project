@@ -52,7 +52,7 @@ We built a functional prototype (Flutter/Android/Web). A real-user test with box
 
 ## 3. The Outcome
 
-First-time PROXY users could complete every core task, but the app is not yet fast or easy enough. All numbers are from PROXY users (n = 8, not boxers) unless stated; full table in [comparison-table.md](comparison-table.md).
+First-time PROXY users could complete every core task, but the app is not yet fast or easy enough. All numbers are from PROXY users (n = 8, not boxers) unless stated; full table in [comparison-table.md](../04-Deliver/comparison-table.md).
 
 ### Key Metrics
 * **Task success:** 56/56 tasks completed (100%); **51/56 without help (91%)**, above the 80% target.
