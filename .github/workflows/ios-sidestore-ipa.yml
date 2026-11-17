@@ -1,0 +1,61 @@
+name: Build iOS IPA for SideStore
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/ios-sidestore-ipa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+
+      - name: Build iPhone app without distribution signing
+        run: |
+          flutter --version
+          xcodebuild -version
+          flutter pub get
+          flutter build ios --release --no-codesign
+
+      - name: Preserve requested HealthKit entitlement and package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="build/ios/iphoneos/Runner.app"
+          test -d "$app"
+          /usr/bin/codesign --force --sign - \
+            --entitlements ios/Runner/Runner.entitlements "$app"
+          /usr/bin/codesign --display --entitlements :- "$app" \
+            > build/ios/healthkit-entitlements.plist
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.healthkit' \
+            build/ios/healthkit-entitlements.plist | grep -qx true
+          mkdir -p build/ios/sidestore/Payload
+          cp -R "$app" build/ios/sidestore/Payload/Runner.app
+          (
+            cd build/ios/sidestore
+            zip -qry Boxer-Recovery-SideStore.ipa Payload
+            unzip -tq Boxer-Recovery-SideStore.ipa
+            shasum -a 256 Boxer-Recovery-SideStore.ipa \
+              > Boxer-Recovery-SideStore.ipa.sha256
+          )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boxer-recovery-sidestore-ipa
+          path: |
+            build/ios/sidestore/Boxer-Recovery-SideStore.ipa
+            build/ios/sidestore/Boxer-Recovery-SideStore.ipa.sha256
+            build/ios/healthkit-entitlements.plist
+          retention-days: 7

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Read Huawei sleep, heart and workout records shared to Apple Health for boxer recovery insights.</string>
+	<string>Read sleep, heart rate, HRV, and workout records from Apple Health for boxer recovery insights. Records may come from compatible watches and other sources.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Boxer Recovery does not write health data. This app reads only the records you allow.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
