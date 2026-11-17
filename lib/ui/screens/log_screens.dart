@@ -11,6 +11,7 @@ import '../../domain/urine_colour.dart';
 import '../components.dart';
 import '../body_pain_map.dart';
 import '../design.dart';
+import '../nutrition_check_form.dart';
 import '../urine_colour_picker.dart';
 
 class MorningScreen extends StatefulWidget {
@@ -313,6 +314,18 @@ class _NutritionScreenState extends State<NutritionScreen> {
   String? meal;
   String? protein;
   String? carbs;
+
+  @override
+  void initState() {
+    super.initState();
+    final previous = widget.controller.data?.latestNutrition;
+    if (previous?.date == widget.controller.data?.currentDay) {
+      meal = previous?.meal;
+      protein = previous?.protein;
+      carbs = previous?.carbs;
+    }
+  }
+
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -320,38 +333,47 @@ class _NutritionScreenState extends State<NutritionScreen> {
             title: 'Nutrition',
             subtitle: 'Quick check · 10–15 seconds',
             onBack: () => widget.controller.navigate('today')),
-        const SizedBox(height: 22),
-        const FieldTitle('Post-training meal?'),
-        ChoiceGroup(
-            options: const ['Yes', 'No'],
-            value: meal,
-            onChanged: (v) => setState(() => meal = v)),
-        const SizedBox(height: 24),
-        const FieldTitle('Protein completed?'),
-        ChoiceGroup(
-            options: const ['Yes', 'No'],
-            value: protein,
-            onChanged: (v) => setState(() => protein = v)),
-        const SizedBox(height: 24),
-        const FieldTitle('Carbs today'),
-        ChoiceGroup(
-            options: const ['Low', 'Medium', 'High'],
-            value: carbs,
-            onChanged: (v) => setState(() => carbs = v)),
-        const SizedBox(height: 24),
-        AppCard(
-            color: const Color(0xfff1f8f4),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Food photo journal',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              const Text('Optional estimate. Confirm every entry yourself.',
-                  style: TextStyle(color: AppColors.muted, fontSize: 12)),
-              TextButton(
-                  onPressed: () => widget.controller.navigate('food-photo'),
-                  child: const Text('Open food journal →'))
-            ])),
-        const SizedBox(height: 24),
+        const SizedBox(height: 27),
+        const SectionLabel('YOUR DAILY CHECK'),
+        const SizedBox(height: 8),
+        Text('A few quick answers about today’s fuel.',
+            style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 5),
+        const Text('No calories or detailed tracking needed.',
+            style: TextStyle(color: AppColors.muted, fontSize: 13)),
+        const SizedBox(height: 20),
+        NutritionCheckForm(
+            meal: meal,
+            protein: protein,
+            carbs: carbs,
+            onMeal: (v) => setState(() => meal = v),
+            onProtein: (v) => setState(() => protein = v),
+            onCarbs: (v) => setState(() => carbs = v)),
+        const SizedBox(height: 19),
+        InkWell(
+          onTap: () => widget.controller.navigate('food-photo'),
+          borderRadius: BorderRadius.circular(12),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Row(children: [
+              Icon(Icons.photo_camera_outlined,
+                  size: 21, color: AppColors.teal),
+              SizedBox(width: 11),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text('Food photo journal',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                    Text('Optional · add a meal photo',
+                        style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  ])),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16, color: AppColors.muted),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 25),
         PrimaryButton('Save nutrition',
             onPressed: meal == null || protein == null || carbs == null
                 ? null
