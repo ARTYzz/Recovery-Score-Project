@@ -105,17 +105,20 @@ class ChoiceGroup<T> extends StatelessWidget {
       required this.options,
       required this.value,
       required this.onChanged,
-      this.columns = 2});
+      this.columns = 2,
+      this.iconFor});
   final List<T> options;
   final T? value;
   final ValueChanged<T> onChanged;
   final int columns;
+  final IconData? Function(T option)? iconFor;
   @override
   Widget build(BuildContext context) => Wrap(
       spacing: 8,
       runSpacing: 8,
       children: options.map((option) {
         final selected = option == value;
+        final icon = iconFor?.call(option);
         return SizedBox(
             width: columns == 1
                 ? double.infinity
@@ -133,10 +136,23 @@ class ChoiceGroup<T> extends StatelessWidget {
                         borderRadius: BorderRadius.circular(13)),
                     padding: const EdgeInsets.symmetric(
                         vertical: 14, horizontal: 9)),
-                child: Text('$option',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w700))));
+                child: icon == null
+                    ? Text('$option',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700))
+                    : Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(icon,
+                            size: 25,
+                            color: selected ? AppColors.ink : AppColors.muted),
+                        const SizedBox(height: 7),
+                        Text('$option',
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700))
+                      ])));
       }).toList());
 }
 

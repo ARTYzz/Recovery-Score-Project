@@ -211,12 +211,22 @@ class _TrainingScreenState extends State<TrainingScreen> {
             onBack: () => widget.controller.navigate('today')),
         const SizedBox(height: 22),
         const FieldTitle('Training type'),
-        ChoiceGroup(options: const [
-          'Sparring',
-          'Boxing / Technical',
-          'Conditioning',
-          'Strength'
-        ], value: type, onChanged: (v) => setState(() => type = v)),
+        ChoiceGroup(
+            options: const [
+              'Sparring',
+              'Boxing / Technical',
+              'Conditioning',
+              'Strength'
+            ],
+            value: type,
+            iconFor: (option) => switch (option) {
+                  'Sparring' => Icons.sports_mma_outlined,
+                  'Boxing / Technical' => Icons.gps_fixed_outlined,
+                  'Conditioning' => Icons.directions_run_outlined,
+                  'Strength' => Icons.fitness_center_outlined,
+                  _ => null,
+                },
+            onChanged: (v) => setState(() => type = v)),
         const SizedBox(height: 22),
         if (type == 'Sparring') ...[
           const FieldTitle('Rounds'),
