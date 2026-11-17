@@ -26,6 +26,13 @@ class TodayScreen extends StatelessWidget {
     final sleep = data.latestSleepSample;
     final hrv = data.latestMetricSample((sample) => sample.hrv);
     final restingHr = data.latestMetricSample((sample) => sample.restingHr);
+    final sleepMinutes = sleep?.sleepMinutes;
+    final hrvValue = hrv?.hrv;
+    final restingHrValue = restingHr?.restingHr;
+    final hasSleep = sleepMinutes != null && sleepMinutes > 0;
+    final hasHrv = hrvValue != null && hrvValue > 0;
+    final hasRestingHr = restingHrValue != null && restingHrValue > 0;
+    final fightCampConnection = data.connections['fightcamp'];
     final actionDoneToday =
         data.actions.any((action) => action.date == data.currentDay);
     final observedActions =
@@ -146,53 +153,48 @@ class TodayScreen extends StatelessWidget {
                     : 'Personal baseline $baselineDays/7 days',
                 style: const TextStyle(fontSize: 10, color: AppColors.muted))),
       ],
-      const SizedBox(height: 8),
-      AppCard(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(children: [
-            const Icon(Icons.bedtime_outlined, color: AppColors.teal),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  const Text('Last sleep',
-                      style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700)),
-                  Text(
-                      sleep?.sleepMinutes == null
-                          ? 'Unavailable'
-                          : '${sleep!.sleepMinutes! ~/ 60} h ${sleep.sleepMinutes! % 60} min',
-                      style: const TextStyle(
-                          fontSize: 19, fontWeight: FontWeight.w800))
-                ])),
-            if (sleep?.sleepMinutes != null)
+      if (hasSleep) ...[
+        const SizedBox(height: 8),
+        AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(children: [
+              const Icon(Icons.bedtime_outlined, color: AppColors.teal),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const Text('Last sleep',
+                        style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700)),
+                    Text('${sleepMinutes ~/ 60} h ${sleepMinutes % 60} min',
+                        style: const TextStyle(
+                            fontSize: 19, fontWeight: FontWeight.w800))
+                  ])),
               Text(
                   result.domains['sleep']!.status == 'INSUFFICIENT_DATA'
                       ? 'Learning baseline'
                       : 'Auto loaded',
                   style: const TextStyle(fontSize: 10, color: AppColors.muted))
-          ])),
-      const SizedBox(height: 8),
-      Row(children: [
-        Expanded(
-            child: MetricTile(
-                'Last HRV', hrv?.hrv?.round().toString() ?? 'Unavailable',
-                unit: hrv?.hrv == null ? '' : ' ms')),
-        const SizedBox(width: 8),
-        Expanded(
-            child: MetricTile('Resting HR',
-                restingHr?.restingHr?.round().toString() ?? 'Unavailable',
-                unit: restingHr?.restingHr == null ? '' : ' bpm'))
-      ]),
-      if (hrv?.hrv == null && controller.appleHealth.supported)
-        Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-                onPressed: () => controller.navigate('connections'),
-                child: const Text('Why is HRV unavailable?'))),
+            ])),
+      ],
+      if (hasHrv || hasRestingHr) ...[
+        const SizedBox(height: 8),
+        Row(children: [
+          if (hasHrv)
+            Expanded(
+                child: MetricTile('Last HRV', hrvValue.round().toString(),
+                    unit: ' ms')),
+          if (hasHrv && hasRestingHr) const SizedBox(width: 8),
+          if (hasRestingHr)
+            Expanded(
+                child: MetricTile(
+                    'Resting HR', restingHrValue.round().toString(),
+                    unit: ' bpm'))
+        ]),
+      ],
       const SizedBox(height: 10),
       AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -360,20 +362,25 @@ class TodayScreen extends StatelessWidget {
                 : result.avoid.join(' · '),
             style: const TextStyle(color: AppColors.red))
       ])),
-      const SizedBox(height: 13),
-      AppCard(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const SectionLabel('Connected data'),
-        const SizedBox(height: 8),
-        Text(
-            'Health: ${wearable == null ? 'Unavailable' : '${data.activeHealthSourceLabel} · ${wearable.mode}'}'),
-        Text('FightCamp: ${data.connections['fightcamp'] ?? 'Unavailable'}'),
-        const SizedBox(height: 8),
-        TextButton(
-            onPressed: () => controller.navigate('fightcamp'),
-            child: const Text('View FightCamp performance →'))
-      ])),
+      if (wearable != null || fightCampConnection != null) ...[
+        const SizedBox(height: 13),
+        AppCard(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SectionLabel('Connected data'),
+          const SizedBox(height: 8),
+          if (wearable != null)
+            Text('Health: ${data.activeHealthSourceLabel} · ${wearable.mode}'),
+          if (fightCampConnection != null)
+            Text('FightCamp: $fightCampConnection'),
+          if (fightCampConnection != null) ...[
+            const SizedBox(height: 8),
+            TextButton(
+                onPressed: () => controller.navigate('fightcamp'),
+                child: const Text('View FightCamp performance →'))
+          ]
+        ])),
+      ],
       const SizedBox(height: 14),
       Row(children: [
         Expanded(
