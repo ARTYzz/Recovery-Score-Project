@@ -50,7 +50,7 @@ Evidence labels: **PROXY** = people outside the team who are not boxers; **TEAM*
 | Comparison table (incl. AI row) | [comparison-table.md](../04-Deliver/comparison-table.md) |
 | Role statement — Theerawut Khamsuetrong (6631503024) | [6631503024-Theerawut.md](../04-Deliver/6631503024-Theerawut.md) |
 | Role statement — Hassakorn Buaurai (6631503127) | [6631503127-Hassakorn.md](../04-Deliver/6631503127-Hassakorn.md) |
-| Role statement — Pawornpat Kongdaeng (6531503111) | _TO ADD_ |
+| Role statement — Pawornpat Kongdaeng (6531503111), Product Owner | [6531503111-Pawornpat.md](../04-Deliver/6531503111-Pawornpat.md) |
 | Role statement — Thiraphat Kongkan (6631503023) | _TO ADD_ |
 | Role statement — Chisanucha Vongtalay (6631503125) | _TO ADD_ |
 
